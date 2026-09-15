@@ -16,6 +16,11 @@
  */
 package org.apache.rocketmq.studio.ops.ai.tool;
 
+import org.apache.rocketmq.studio.ops.ai.tool.handler.cluster.ClusterListToolHandler;
+import org.apache.rocketmq.studio.ops.ai.tool.contract.cluster.ClusterListInput;
+import org.apache.rocketmq.studio.ops.ai.tool.contract.cluster.ClusterListItem;
+import org.apache.rocketmq.studio.ops.ai.tool.contract.common.ListOutput;
+
 import org.apache.rocketmq.studio.cluster.broker.ClusterService;
 import org.apache.rocketmq.studio.cluster.broker.ClusterVO;
 import org.apache.rocketmq.studio.common.domain.enums.ClusterStatus;
@@ -23,18 +28,16 @@ import org.apache.rocketmq.studio.common.domain.enums.ClusterType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.apache.rocketmq.studio.ops.ai.tool.TestToolExecutionContexts.context;
 
 class ClusterListToolHandlerTest {
 
     @Test
-    void nullClusterVersionIsEmittedAsBlankString() {
-        // The Apache runtime provider reports no cluster version; the projection must not
-        // emit a null into the schema-required "version" string.
+    void nullClusterVersionDefaultsToEmptyString() {
         ClusterVO cluster = ClusterVO.builder()
                 .name("DefaultCluster")
                 .type(ClusterType.V4_DIRECT)
@@ -45,17 +48,17 @@ class ClusterListToolHandlerTest {
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.listClusters()).thenReturn(List.of(cluster));
 
-        Object output = new ClusterListToolHandler(clusterService).execute(Map.of());
+        ListOutput<ClusterListItem> output =
+                new ClusterListToolHandler(clusterService).execute(
+                        new ClusterListInput(null, null), context("instance-a"));
 
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> rows = (List<Map<String, Object>>) output;
-        assertThat(rows).hasSize(1);
-        Map<String, Object> row = rows.get(0);
-        assertThat(row.get("id")).isEqualTo("DefaultCluster");
-        assertThat(row.get("name")).isEqualTo("DefaultCluster");
-        assertThat(row.get("type")).isEqualTo("V4_DIRECT");
-        assertThat(row.get("status")).isEqualTo("healthy");
-        assertThat(row.get("version")).isEqualTo("");
+        assertThat(output.items()).hasSize(1);
+        ClusterListItem row = output.items().getFirst();
+        assertThat(row.id()).isEqualTo("DefaultCluster");
+        assertThat(row.name()).isEqualTo("DefaultCluster");
+        assertThat(row.type()).isEqualTo(ClusterType.V4_DIRECT);
+        assertThat(row.status()).isEqualTo(ClusterStatus.healthy);
+        assertThat(row.version()).isEqualTo("");
     }
 
     @Test
@@ -71,12 +74,37 @@ class ClusterListToolHandlerTest {
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.listClusters()).thenReturn(List.of(cluster));
 
-        Object output = new ClusterListToolHandler(clusterService).execute(Map.of());
+        ListOutput<ClusterListItem> output =
+                new ClusterListToolHandler(clusterService).execute(
+                        new ClusterListInput(null, null), context("instance-a"));
 
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> rows = (List<Map<String, Object>>) output;
-        @SuppressWarnings("unchecked")
-        Map<String, Object> row = rows.get(0);
-        assertThat(row.get("version")).isEqualTo("V5_3_1");
+        assertThat(output.items().getFirst().version()).isEqualTo("V5_3_1");
+    }
+
+    @Test
+    void filtersClustersByStatus() {
+        ClusterVO healthy = ClusterVO.builder()
+                .name("HealthyCluster")
+                .type(ClusterType.V4_DIRECT)
+                .status(ClusterStatus.healthy)
+                .build();
+        healthy.setId("HealthyCluster");
+        ClusterVO offline = ClusterVO.builder()
+                .name("OfflineCluster")
+                .type(ClusterType.V4_DIRECT)
+                .status(ClusterStatus.offline)
+                .build();
+        offline.setId("OfflineCluster");
+
+        ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.listClusters()).thenReturn(List.of(healthy, offline));
+
+        ListOutput<ClusterListItem> output =
+                new ClusterListToolHandler(clusterService).execute(
+                        new ClusterListInput(null, "OFFLINE"), context("instance-a"));
+
+        assertThat(output.items()).singleElement()
+                .extracting(ClusterListItem::id)
+                .isEqualTo("OfflineCluster");
     }
 }

@@ -16,7 +16,7 @@
  */
 package org.apache.rocketmq.studio.settings;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.apache.rocketmq.studio.audit.OperationAuditService;
 import org.apache.rocketmq.studio.common.domain.PageResult;
 import org.junit.jupiter.api.BeforeEach;

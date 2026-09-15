@@ -16,8 +16,8 @@
  */
 package org.apache.rocketmq.studio.settings;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.studio.auth.AuthenticatedUserContext;
 import org.apache.rocketmq.studio.audit.OperationAuditService;
@@ -42,7 +42,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.io.IOException;
+
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -450,7 +450,7 @@ public class SettingsService {
     private String prometheusErrorMessage(RestClientResponseException exception) {
         try {
             return prometheusBodyError(objectMapper.readTree(exception.getResponseBodyAsString()));
-        } catch (IOException ignored) {
+        } catch (tools.jackson.core.JacksonException ignored) {
             return "Prometheus query failed";
         }
     }

@@ -1,0 +1,61 @@
+version: 2.0.0
+minimumClientVersion: 2.0.0
+$defs:
+  mutationInputL2:
+    type: object
+    properties:
+      dry_run:
+        type: boolean
+        description: When true, preview the mutation without executing it; omit to apply with a confirm_token.
+      confirm_token:
+        type: string
+        minLength: 1
+  mutationInputL3:
+    allOf:
+      - $ref: "#/$defs/mutationInputL2"
+      - type: object
+        properties:
+          break_glass:
+            type: boolean
+          reason:
+            type: string
+            minLength: 1
+  mutationOutput:
+    type: object
+    required:
+      - status
+      - cluster
+      - plan
+    properties:
+      status:
+        enum:
+          - PLANNED
+          - EXECUTED
+      cluster:
+        type: string
+      confirm_token:
+        type: string
+      plan:
+        type: object
+        required:
+          - summary
+          - impact
+          - before
+          - after
+          - warnings
+        additionalProperties: false
+        properties:
+          before:
+            type: object
+          after:
+            type: object
+          summary:
+            type: string
+          impact:
+            type: array
+            items:
+              type: string
+          warnings:
+            type: array
+            items:
+              type: string

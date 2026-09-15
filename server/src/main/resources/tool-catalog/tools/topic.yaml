@@ -1,0 +1,456 @@
+version: 2.0.0
+tools:
+  - name: rmq.topic.list
+    cli:
+      resource: topic
+      verb: list
+    description: List RocketMQ topics in one Studio cluster.
+    riskLevel: L1
+    permission: topic:read
+    requiredCapabilities: []
+    inputSchema:
+      type: object
+      required:
+        - cluster
+      additionalProperties: false
+      properties:
+        cluster:
+          type: string
+          minLength: 1
+        type:
+          enum:
+            - NORMAL
+            - FIFO
+            - DELAY
+            - TRANSACTION
+            - LITE
+        search:
+          type: string
+          minLength: 1
+    outputSchema:
+      type: object
+      required:
+        - items
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - clusterId
+              - name
+              - perm
+              - writeQueues
+              - readQueues
+            additionalProperties: true
+            properties:
+              clusterId:
+                type: string
+              name:
+                type: string
+                minLength: 1
+              namespace:
+                type: string
+              perm:
+                enum:
+                  - RW
+                  - RO
+                  - WO
+              type:
+                enum:
+                  - NORMAL
+                  - FIFO
+                  - DELAY
+                  - TRANSACTION
+                  - LITE
+              writeQueues:
+                type: integer
+              readQueues:
+                type: integer
+    viewHint: table
+    deprecated: false
+  - name: rmq.topic.create
+    cli:
+      resource: topic
+      verb: create
+    description: Create a RocketMQ topic.
+    riskLevel: L2
+    permission: topic:write
+    requiredCapabilities: []
+    inputSchema:
+      allOf:
+        - type: object
+          required:
+            - cluster
+            - topic
+          additionalProperties: false
+          properties:
+            cluster:
+              type: string
+              minLength: 1
+            topic:
+              type: string
+              minLength: 1
+            namespace:
+              type: string
+              minLength: 1
+            type:
+              enum:
+                - NORMAL
+                - FIFO
+                - DELAY
+                - TRANSACTION
+                - LITE
+            writeQueues:
+              type: integer
+              minimum: 1
+            readQueues:
+              type: integer
+              minimum: 1
+            perm:
+              enum:
+                - RW
+                - RO
+                - WO
+            remark:
+              type: string
+        - $ref: "#/$defs/mutationInputL2"
+    outputSchema:
+      allOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            result:
+              type: object
+        - $ref: "#/$defs/mutationOutput"
+    viewHint: object
+    deprecated: false
+  - name: rmq.topic.update
+    cli:
+      resource: topic
+      verb: update
+    description: Update a RocketMQ topic.
+    riskLevel: L2
+    permission: topic:write
+    requiredCapabilities: []
+    inputSchema:
+      allOf:
+        - type: object
+          required:
+            - cluster
+            - topic
+          additionalProperties: false
+          anyOf:
+            - required:
+                - type
+            - required:
+                - writeQueues
+            - required:
+                - readQueues
+            - required:
+                - perm
+            - required:
+                - remark
+          properties:
+            cluster:
+              type: string
+              minLength: 1
+            topic:
+              type: string
+              minLength: 1
+            namespace:
+              type: string
+              minLength: 1
+            type:
+              enum:
+                - NORMAL
+                - FIFO
+                - DELAY
+                - TRANSACTION
+                - LITE
+            writeQueues:
+              type: integer
+              minimum: 1
+            readQueues:
+              type: integer
+              minimum: 1
+            perm:
+              enum:
+                - RW
+                - RO
+                - WO
+            remark:
+              type: string
+        - $ref: "#/$defs/mutationInputL2"
+    outputSchema:
+      allOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            result:
+              type: object
+        - $ref: "#/$defs/mutationOutput"
+    viewHint: object
+    deprecated: false
+  - name: rmq.topic.describe
+    cli:
+      resource: topic
+      verb: describe
+    description: Describe one RocketMQ topic, including configuration, consumer groups and a summary of broker names. For detailed broker route info, use rmq.topic.route.
+    riskLevel: L1
+    permission: topic:read
+    requiredCapabilities: []
+    inputSchema:
+      type: object
+      required:
+        - cluster
+        - topic
+      additionalProperties: false
+      properties:
+        cluster:
+          type: string
+          minLength: 1
+        topic:
+          type: string
+          minLength: 1
+        namespace:
+          type: string
+          minLength: 1
+    outputSchema:
+      type: object
+      required:
+        - cluster
+        - name
+        - writeQueues
+        - readQueues
+        - messageCount
+        - tps
+        - consumerGroupCount
+        - consumerGroups
+        - brokerNames
+      additionalProperties: false
+      properties:
+        cluster:
+          type: string
+        name:
+          type: string
+          minLength: 1
+        namespace:
+          type: string
+        clusterId:
+          type: string
+        type:
+          enum:
+            - NORMAL
+            - FIFO
+            - DELAY
+            - TRANSACTION
+            - LITE
+        writeQueues:
+          type: integer
+        readQueues:
+          type: integer
+        perm:
+          enum:
+            - RW
+            - RO
+            - WO
+        messageCount:
+          type: integer
+        tps:
+          type: number
+        consumerGroupCount:
+          type: integer
+        remark:
+          type: string
+        consumerGroups:
+          type: array
+          items:
+            type: object
+            required:
+              - group
+              - diffTotal
+              - metricsAvailable
+            additionalProperties: false
+            properties:
+              group:
+                type: string
+              consumeType:
+                type: string
+              messageModel:
+                type: string
+              consumeTps:
+                type: number
+              diffTotal:
+                type: integer
+              metricsAvailable:
+                type: boolean
+        brokerNames:
+          type: array
+          items:
+            type: string
+    viewHint: object
+    deprecated: false
+  - name: rmq.topic.route
+    cli:
+      resource: topic
+      verb: route
+    description: Return detailed broker route info for one RocketMQ topic, including broker addresses, queue counts, permissions and replica details. Use rmq.topic.describe for a topic overview.
+    riskLevel: L1
+    permission: topic:read
+    requiredCapabilities: []
+    inputSchema:
+      type: object
+      required:
+        - cluster
+        - topic
+      additionalProperties: false
+      properties:
+        cluster:
+          type: string
+          minLength: 1
+        topic:
+          type: string
+          minLength: 1
+        namespace:
+          type: string
+          minLength: 1
+    outputSchema:
+      type: object
+      required:
+        - items
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - brokerName
+              - writeQueues
+              - readQueues
+              - readable
+              - writable
+            additionalProperties: false
+            properties:
+              brokerName:
+                type: string
+              brokerAddr:
+                type: string
+              masterAddr:
+                type: string
+              brokerAddrs:
+                type: object
+                additionalProperties:
+                  type: string
+              brokerIds:
+                type: array
+                items:
+                  type: integer
+              replicaCount:
+                type: integer
+              writeQueues:
+                type: integer
+              readQueues:
+                type: integer
+              perm:
+                type: string
+              permCode:
+                type: integer
+              readable:
+                type: boolean
+              writable:
+                type: boolean
+              topicSysFlag:
+                type: integer
+    viewHint: table
+    deprecated: false
+  - name: rmq.topic.send
+    cli:
+      resource: topic
+      verb: send
+    description: Send one message to a RocketMQ topic.
+    riskLevel: L2
+    permission: topic:write
+    requiredCapabilities: []
+    inputSchema:
+      allOf:
+        - type: object
+          required:
+            - cluster
+            - topic
+            - body
+          additionalProperties: false
+          properties:
+            cluster:
+              type: string
+              minLength: 1
+            topic:
+              type: string
+              minLength: 1
+            tag:
+              type: string
+            key:
+              type: string
+            body:
+              type: string
+              minLength: 1
+            properties:
+              type: string
+              description: JSON object string of message properties, e.g. '{"key1":"value1"}'.
+        - $ref: "#/$defs/mutationInputL2"
+    outputSchema:
+      allOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            result:
+              type: object
+              required:
+                - msgId
+                - sendTime
+              additionalProperties: false
+              properties:
+                msgId:
+                  type: string
+                offsetMsgId:
+                  type: string
+                sendTime:
+                  type: integer
+        - $ref: "#/$defs/mutationOutput"
+    viewHint: object
+    deprecated: false
+  - name: rmq.topic.delete
+    cli:
+      resource: topic
+      verb: delete
+    description: Delete a RocketMQ topic.
+    riskLevel: L3
+    permission: topic:delete
+    requiredCapabilities: []
+    inputSchema:
+      allOf:
+        - type: object
+          required:
+            - cluster
+            - topic
+          additionalProperties: false
+          properties:
+            cluster:
+              type: string
+              minLength: 1
+            topic:
+              type: string
+              minLength: 1
+        - $ref: "#/$defs/mutationInputL3"
+    outputSchema:
+      allOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            result:
+              type: object
+        - $ref: "#/$defs/mutationOutput"
+    viewHint: object
+    deprecated: false
