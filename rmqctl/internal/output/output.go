@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -106,9 +107,9 @@ func ToolCallSummary(w io.Writer, result any) error {
 		return err
 	}
 	table := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(table, "CLUSTER\tSTATUS\tCONFIRM TOKEN")
-	fmt.Fprintf(table, "%s\t%s\t%s\n",
-		mutation.Cluster, mutation.Status, mutation.ConfirmToken)
+	fmt.Fprintln(table, "CLUSTER\tSTATUS")
+	fmt.Fprintf(table, "%s\t%s\n",
+		mutation.Cluster, mutation.Status)
 	if err := table.Flush(); err != nil {
 		return err
 	}
@@ -178,5 +179,13 @@ func stringify(value any) string {
 	if f, ok := value.(float64); ok {
 		return strconv.FormatFloat(f, 'f', -1, 64)
 	}
+	if isEmptySlice(value) {
+		return "-"
+	}
 	return fmt.Sprint(value)
+}
+
+func isEmptySlice(value any) bool {
+	rv := reflect.ValueOf(value)
+	return rv.Kind() == reflect.Slice && rv.Len() == 0
 }

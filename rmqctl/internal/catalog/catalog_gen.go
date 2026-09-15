@@ -21,7 +21,7 @@ package catalog
 var defaultDocument = Document{
 	Version:              "2.0.0",
 	MinimumClientVersion: "2.0.0",
-	Digest:               "bf09bfadf589d34b0638f012e9f1b7d3300d10372bb73b7ccb07762c99876295",
+	Digest:               "9fa2053fddecdee9546d787f780b254f6b46fba4a90b8cbbb5f351d41551a7b8",
 	Tools: []Tool{
 		{
 			Name:                 "rmq.acl.create",
@@ -29,10 +29,10 @@ var defaultDocument = Document{
 			Description:          "Create a RocketMQ ACL rule for a principal on a resource.",
 			RiskLevel:            "L2",
 			Permission:           "acl:write",
-			RequiredCapabilities: []string{"ACL_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "principal", Flag: "principal", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "resource", Flag: "resource", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "resourceType", Flag: "resource-type", Kind: StringField},
@@ -41,8 +41,25 @@ var defaultDocument = Document{
 					{Name: "decision", Flag: "decision", Kind: StringField},
 					{Name: "scope", Flag: "scope", Kind: StringField},
 					{Name: "aclVersion", Flag: "acl-version", Kind: StringField},
-					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object"},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -53,15 +70,32 @@ var defaultDocument = Document{
 			Description:          "Delete a RocketMQ ACL rule by id.",
 			RiskLevel:            "L3",
 			Permission:           "acl:delete",
-			RequiredCapabilities: []string{"ACL_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "id", Flag: "id", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
 					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "break_glass", Flag: "break-glass", Kind: BooleanField},
 					{Name: "reason", Flag: "reason", Kind: StringField, MinLength: 1},
-					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object"},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -72,10 +106,10 @@ var defaultDocument = Document{
 			Description:          "List RocketMQ ACL rules in one Studio cluster with optional filters.",
 			RiskLevel:            "L1",
 			Permission:           "acl:read",
-			RequiredCapabilities: []string{"ACL_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "principal", Flag: "principal", Kind: StringField},
 					{Name: "resource", Flag: "resource", Kind: StringField},
 					{Name: "scope", Flag: "scope", Kind: StringField},
@@ -89,8 +123,30 @@ var defaultDocument = Document{
 					}},
 				},
 			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "page", Kind: "integer"},
+					{Name: "pageSize", Kind: "integer"},
+					{Name: "total", Kind: "integer"},
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "id", Kind: "string"},
+							{Name: "principal", Kind: "string"},
+							{Name: "resource", Kind: "string"},
+							{Name: "resourceType", Kind: "string"},
+							{Name: "resourcePattern", Kind: "string"},
+							{Name: "actions", Kind: "array"},
+							{Name: "decision", Kind: "string"},
+							{Name: "scope", Kind: "string"},
+							{Name: "aclVersion", Kind: "string"},
+							{Name: "gmtCreate", Kind: "string|null"},
+						},
+					}},
+				},
+			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"id", "principal", "resource", "resourceType", "resourcePattern", "actions", "decision", "scope", "aclVersion", "gmtCreate"},
 		},
 		{
 			Name:                 "rmq.acl.update",
@@ -98,10 +154,10 @@ var defaultDocument = Document{
 			Description:          "Update an existing RocketMQ ACL rule by id.",
 			RiskLevel:            "L2",
 			Permission:           "acl:write",
-			RequiredCapabilities: []string{"ACL_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "id", Flag: "id", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "principal", Flag: "principal", Kind: StringField},
 					{Name: "resource", Flag: "resource", Kind: StringField},
@@ -111,8 +167,25 @@ var defaultDocument = Document{
 					{Name: "decision", Flag: "decision", Kind: StringField},
 					{Name: "scope", Flag: "scope", Kind: StringField},
 					{Name: "aclVersion", Flag: "acl-version", Kind: StringField},
-					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object"},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -126,40 +199,32 @@ var defaultDocument = Document{
 			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "search", Flag: "search", Kind: StringField, MinLength: 1},
 					{Name: "enabled", Flag: "enabled", Kind: BooleanField},
 				},
 			},
-			ViewHint:     "table",
-			TableDataKey: "items",
-		},
-		{
-			Name:                 "rmq.audit.list",
-			CLI:                  CLI{Resource: "audit", Verb: "list"},
-			Description:          "Query audit entries explicitly attributed to the selected Instance; historical unassigned entries are excluded.",
-			RiskLevel:            "L1",
-			Permission:           "audit:read",
-			RequiredCapabilities: []string{},
-			InputSchema: InputSchema{
-				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
-					{Name: "search", Flag: "search", Kind: StringField},
-					{Name: "operationType", Flag: "operation-type", Kind: StringField},
-					{Name: "resourceType", Flag: "resource-type", Kind: StringField},
-					{Name: "startDate", Flag: "start-date", Kind: StringField},
-					{Name: "endDate", Flag: "end-date", Kind: StringField},
-					{Name: "result", Flag: "result", Kind: StringField},
-					{Name: "page", Kind: ObjectField, Object: &InputSchema{
-						Fields: []Field{
-							{Name: "page", Flag: "page", Kind: IntegerField, Minimum: 1, HasMinimum: true},
-							{Name: "pageSize", Flag: "page-size", Kind: IntegerField, Minimum: 1, HasMinimum: true},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "id", Kind: "integer"},
+							{Name: "name", Kind: "string"},
+							{Name: "metric", Kind: "string"},
+							{Name: "operator", Kind: "string"},
+							{Name: "threshold", Kind: "number"},
+							{Name: "thresholdUnit", Kind: "string"},
+							{Name: "duration", Kind: "string"},
+							{Name: "channels", Kind: "array"},
+							{Name: "enabled", Kind: "boolean"},
+							{Name: "description", Kind: "string"},
 						},
 					}},
 				},
 			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"id", "name", "metric", "operator", "threshold", "thresholdUnit", "duration", "channels", "enabled", "description"},
 		},
 		{
 			Name:                 "rmq.broker.config",
@@ -167,10 +232,42 @@ var defaultDocument = Document{
 			Description:          "Compare configuration across master Brokers in one resolved physical Broker cluster.",
 			RiskLevel:            "L1",
 			Permission:           "broker:read",
-			RequiredCapabilities: []string{"BROKER_ADMIN"},
+			RequiredCapabilities: []string{"ROCKETMQ_4", "ROCKETMQ_5"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "complete", Kind: "boolean"},
+					{Name: "driftDetected", Kind: "boolean"},
+					{Name: "brokerCount", Kind: "integer"},
+					{Name: "reachableBrokerCount", Kind: "integer"},
+					{Name: "comparedFields", Kind: "array"},
+					{Name: "brokers", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "name", Kind: "string"},
+							{Name: "address", Kind: "string"},
+							{Name: "reachable", Kind: "boolean"},
+							{Name: "message", Kind: "string|null"},
+						},
+					}},
+					{Name: "differences", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "field", Kind: "string"},
+							{Name: "brokerProperty", Kind: "string"},
+							{Name: "values", Kind: "array", ArrayItem: &OutputSchema{
+								Fields: []OutputField{
+									{Name: "brokerName", Kind: "string"},
+									{Name: "address", Kind: "string"},
+									{Name: "configured", Kind: "boolean"},
+									{Name: "value", Kind: "string|null"},
+								},
+							}},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -181,10 +278,10 @@ var defaultDocument = Document{
 			Description:          "Update broker configuration for all brokers in one cluster.",
 			RiskLevel:            "L3",
 			Permission:           "broker:write",
-			RequiredCapabilities: []string{"BROKER_ADMIN"},
+			RequiredCapabilities: []string{"ROCKETMQ_4", "ROCKETMQ_5"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "flushDiskType", Flag: "flush-disk-type", Kind: StringField},
 					{Name: "autoCreateTopicEnable", Flag: "auto-create-topic-enable", Kind: BooleanField},
 					{Name: "autoCreateSubscriptionGroup", Flag: "auto-create-subscription-group", Kind: BooleanField},
@@ -193,10 +290,27 @@ var defaultDocument = Document{
 					{Name: "writeQueueNums", Flag: "write-queue-nums", Kind: IntegerField},
 					{Name: "readQueueNums", Flag: "read-queue-nums", Kind: IntegerField},
 					{Name: "brokerPermission", Flag: "broker-permission", Kind: IntegerField},
+					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
 					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "break_glass", Flag: "break-glass", Kind: BooleanField},
 					{Name: "reason", Flag: "reason", Kind: StringField, MinLength: 1},
-					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object"},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -207,15 +321,33 @@ var defaultDocument = Document{
 			Description:          "Describe the Broker replica group identified by brokerName within the Instance; read its master or lowest available brokerId.",
 			RiskLevel:            "L1",
 			Permission:           "broker:read",
-			RequiredCapabilities: []string{"BROKER_ADMIN"},
+			RequiredCapabilities: []string{"ROCKETMQ_4", "ROCKETMQ_5"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "broker", Flag: "broker", Kind: StringField, Required: true, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "name", Kind: "string"},
+							{Name: "addr", Kind: "string"},
+							{Name: "version", Kind: "string|null"},
+							{Name: "status", Kind: "string|null"},
+							{Name: "diskUsage", Kind: "number"},
+							{Name: "tpsIn", Kind: "number"},
+							{Name: "tpsOut", Kind: "number"},
+							{Name: "runtimeStatsAvailable", Kind: "boolean"},
+						},
+					}},
 				},
 			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"name", "addr", "version", "status", "diskUsage", "tpsIn", "tpsOut", "runtimeStatsAvailable"},
 		},
 		{
 			Name:                 "rmq.broker.list",
@@ -223,14 +355,36 @@ var defaultDocument = Document{
 			Description:          "List Broker replica groups across the selected Instance, including each physical Broker cluster name.",
 			RiskLevel:            "L1",
 			Permission:           "broker:read",
-			RequiredCapabilities: []string{"BROKER_ADMIN"},
+			RequiredCapabilities: []string{"ROCKETMQ_4", "ROCKETMQ_5"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "name", Kind: "string"},
+							{Name: "addr", Kind: "string"},
+							{Name: "version", Kind: "string|null"},
+							{Name: "status", Kind: "string|null"},
+							{Name: "diskUsage", Kind: "number"},
+							{Name: "tpsIn", Kind: "number"},
+							{Name: "tpsOut", Kind: "number"},
+							{Name: "putMessagesToday", Kind: "integer"},
+							{Name: "putMessagesYesterday", Kind: "integer"},
+							{Name: "getMessagesToday", Kind: "integer"},
+							{Name: "getMessagesYesterday", Kind: "integer"},
+							{Name: "runtimeStatsAvailable", Kind: "boolean"},
+						},
+					}},
 				},
 			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"name", "addr", "version", "status", "diskUsage", "tpsIn", "tpsOut", "putMessagesToday", "putMessagesYesterday", "getMessagesToday", "getMessagesYesterday", "runtimeStatsAvailable"},
 		},
 		{
 			Name:                 "rmq.broker.runtime_info",
@@ -238,10 +392,27 @@ var defaultDocument = Document{
 			Description:          "Read Broker runtime information across the selected Instance.",
 			RiskLevel:            "L1",
 			Permission:           "broker:read",
-			RequiredCapabilities: []string{"BROKER_ADMIN"},
+			RequiredCapabilities: []string{"ROCKETMQ_4", "ROCKETMQ_5"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "brokers", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "name", Kind: "string"},
+							{Name: "addr", Kind: "string"},
+							{Name: "version", Kind: "string|null"},
+							{Name: "status", Kind: "string|null"},
+							{Name: "diskUsage", Kind: "number"},
+							{Name: "tpsIn", Kind: "number"},
+							{Name: "tpsOut", Kind: "number"},
+							{Name: "runtimeStatsAvailable", Kind: "boolean"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -255,7 +426,13 @@ var defaultDocument = Document{
 			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "capabilities", Kind: "array", Description: "Sorted unique capability labels; a tool requires all of its declared capabilities."},
 				},
 			},
 			ViewHint: "object",
@@ -269,13 +446,34 @@ var defaultDocument = Document{
 			RequiredCapabilities: []string{"REMOTING"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "clientId", Flag: "client-id", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "type", Flag: "type", Kind: StringField},
 				},
 			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "clientId", Kind: "string"},
+							{Name: "type", Kind: "string|null"},
+							{Name: "groupOrTopic", Kind: "string|null"},
+							{Name: "producerGroup", Kind: "string|null"},
+							{Name: "protocol", Kind: "string|null"},
+							{Name: "address", Kind: "string|null"},
+							{Name: "language", Kind: "string|null"},
+							{Name: "version", Kind: "string|null"},
+							{Name: "connectedAt", Kind: "string|null"},
+							{Name: "partial", Kind: "boolean"},
+							{Name: "clusterName", Kind: "string|null"},
+						},
+					}},
+				},
+			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"clientId", "type", "groupOrTopic", "producerGroup", "protocol", "address", "language", "version", "connectedAt", "partial", "clusterName"},
 		},
 		{
 			Name:                 "rmq.client.list",
@@ -286,12 +484,33 @@ var defaultDocument = Document{
 			RequiredCapabilities: []string{"REMOTING"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "type", Flag: "type", Kind: StringField},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "clientId", Kind: "string"},
+							{Name: "type", Kind: "string|null"},
+							{Name: "groupOrTopic", Kind: "string|null"},
+							{Name: "producerGroup", Kind: "string|null"},
+							{Name: "protocol", Kind: "string|null"},
+							{Name: "address", Kind: "string|null"},
+							{Name: "language", Kind: "string|null"},
+							{Name: "version", Kind: "string|null"},
+							{Name: "connectedAt", Kind: "string|null"},
+							{Name: "partial", Kind: "boolean"},
+							{Name: "clusterName", Kind: "string|null"},
+						},
+					}},
 				},
 			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"clientId", "type", "groupOrTopic", "producerGroup", "protocol", "address", "language", "version", "connectedAt", "partial", "clusterName"},
 		},
 		{
 			Name:                 "rmq.cluster.list",
@@ -299,15 +518,24 @@ var defaultDocument = Document{
 			Description:          "List RocketMQ clusters available in Studio.",
 			RiskLevel:            "L1",
 			Permission:           "cluster:read",
-			RequiredCapabilities: []string{"CLUSTER_TOPOLOGY"},
-			InputSchema: InputSchema{
-				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
-					{Name: "status", Flag: "status", Kind: StringField, MinLength: 1},
+			RequiredCapabilities: []string{},
+			InputSchema:          InputSchema{},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "id", Kind: "string"},
+							{Name: "name", Kind: "string"},
+							{Name: "type", Kind: "string"},
+							{Name: "status", Enum: []string{"healthy", "warning", "error", "offline"}},
+							{Name: "version", Kind: "string"},
+						},
+					}},
 				},
 			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"id", "name", "type", "status", "version"},
 		},
 		{
 			Name:                 "rmq.dashboard.summary",
@@ -315,10 +543,46 @@ var defaultDocument = Document{
 			Description:          "Summarize the selected Instance, including all its physical Broker cluster overviews.",
 			RiskLevel:            "L1",
 			Permission:           "dashboard:read",
-			RequiredCapabilities: []string{"CLUSTER_TOPOLOGY"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "clusters", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "id", Kind: "string"},
+							{Name: "name", Kind: "string"},
+							{Name: "type", Kind: "string|null"},
+							{Name: "status", Kind: "string|null"},
+							{Name: "brokers", Kind: "integer"},
+							{Name: "proxies", Kind: "integer|null"},
+							{Name: "topics", Kind: "integer"},
+							{Name: "groups", Kind: "integer"},
+							{Name: "tpsIn", Kind: "integer"},
+							{Name: "tpsOut", Kind: "integer"},
+							{Name: "version", Kind: "string|null"},
+							{Name: "throughput", Kind: "array"},
+						},
+					}},
+					{Name: "stats", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "totalClusters", Kind: "integer"},
+							{Name: "healthyClusters", Kind: "integer"},
+							{Name: "totalBrokers", Kind: "integer"},
+							{Name: "totalProxies", Kind: "integer|null"},
+							{Name: "totalNameServers", Kind: "integer|null"},
+							{Name: "totalTopics", Kind: "integer"},
+							{Name: "totalConsumerGroups", Kind: "integer"},
+							{Name: "totalMessagesToday", Kind: "integer"},
+							{Name: "messagesPerSecond", Kind: "integer"},
+							{Name: "tpsIn", Kind: "integer"},
+							{Name: "tpsOut", Kind: "integer"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -329,10 +593,10 @@ var defaultDocument = Document{
 			Description:          "List dead-letter groups or dead-letter messages for a group in one cluster.",
 			RiskLevel:            "L1",
 			Permission:           "dlq:read",
-			RequiredCapabilities: []string{"DLQ_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "group", Flag: "group", Kind: StringField},
 					{Name: "search", Flag: "search", Kind: StringField},
 					{Name: "time", Kind: ObjectField, Object: &InputSchema{
@@ -349,8 +613,36 @@ var defaultDocument = Document{
 					}},
 				},
 			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "group", Kind: "string"},
+					{Name: "page", Kind: "integer"},
+					{Name: "pageSize", Kind: "integer"},
+					{Name: "total", Kind: "integer"},
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "groupName", Kind: "string"},
+							{Name: "dlqTopic", Kind: "string"},
+							{Name: "messageCount", Kind: "integer"},
+							{Name: "retryCount", Kind: "integer"},
+							{Name: "status", Kind: "string"},
+							{Name: "statsAvailable", Kind: "boolean"},
+							{Name: "lastEnqueueTime", Kind: "string|null"},
+							{Name: "msgId", Kind: "string"},
+							{Name: "topic", Kind: "string"},
+							{Name: "queueId", Kind: "integer"},
+							{Name: "offset", Kind: "integer"},
+							{Name: "storeTime", Kind: "integer"},
+							{Name: "keys", Kind: "string"},
+							{Name: "body", Kind: "string"},
+						},
+					}},
+				},
+			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"groupName", "dlqTopic", "messageCount", "retryCount", "status", "statsAvailable", "lastEnqueueTime", "msgId", "topic", "queueId", "offset", "storeTime", "keys", "body"},
 		},
 		{
 			Name:                 "rmq.dlq.resend",
@@ -358,10 +650,10 @@ var defaultDocument = Document{
 			Description:          "Resend dead-letter messages for a consumer group back to the target topic.",
 			RiskLevel:            "L2",
 			Permission:           "dlq:write",
-			RequiredCapabilities: []string{"DLQ_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "group", Flag: "group", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "time", Kind: ObjectField, Object: &InputSchema{
 						Fields: []Field{
@@ -370,10 +662,34 @@ var defaultDocument = Document{
 						},
 					}},
 					{Name: "targetTopic", Flag: "target-topic", Kind: StringField},
-					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
-					{Name: "break_glass", Flag: "break-glass", Kind: BooleanField},
-					{Name: "reason", Flag: "reason", Kind: StringField, MinLength: 1},
 					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "matched", Kind: "integer"},
+							{Name: "resent", Kind: "integer"},
+							{Name: "failed", Kind: "integer"},
+							{Name: "outcome", Kind: "string"},
+							{Name: "scanIncomplete", Kind: "boolean"},
+							{Name: "failedQueueCount", Kind: "integer"},
+						},
+					}},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -384,15 +700,36 @@ var defaultDocument = Document{
 			Description:          "Permanently delete the dead-letter topic for a consumer group.",
 			RiskLevel:            "L3",
 			Permission:           "dlq:write",
-			RequiredCapabilities: []string{"REMOTING"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "group", Flag: "group", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
 					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "break_glass", Flag: "break-glass", Kind: BooleanField},
 					{Name: "reason", Flag: "reason", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "deleted", Kind: "boolean"},
+						},
+					}},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -403,15 +740,33 @@ var defaultDocument = Document{
 			Description:          "List RocketMQ consumer groups in one Studio cluster.",
 			RiskLevel:            "L1",
 			Permission:           "group:read",
-			RequiredCapabilities: []string{"CONSUMER_GROUP_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "search", Flag: "search", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "name", Kind: "string"},
+							{Name: "namespace", Kind: "string"},
+							{Name: "clusterId", Kind: "string"},
+							{Name: "subscriptionMode", Enum: []string{"Push", "Pop"}},
+							{Name: "consumeType", Enum: []string{"CLUSTERING", "BROADCASTING"}},
+							{Name: "onlineInstances", Kind: "integer"},
+							{Name: "totalLag", Kind: "integer"},
+							{Name: "subscribedTopics", Kind: "array"},
+							{Name: "retryMaxTimes", Kind: "integer"},
+						},
+					}},
 				},
 			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"name", "namespace", "clusterId", "subscriptionMode", "consumeType", "onlineInstances", "totalLag", "subscribedTopics", "retryMaxTimes"},
 		},
 		{
 			Name:                 "rmq.group.describe",
@@ -419,12 +774,44 @@ var defaultDocument = Document{
 			Description:          "Describe one RocketMQ consumer group, including subscription summary and health.",
 			RiskLevel:            "L1",
 			Permission:           "group:read",
-			RequiredCapabilities: []string{"CONSUMER_GROUP_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "group", Flag: "group", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "namespace", Flag: "namespace", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "group", Kind: "string"},
+					{Name: "namespace", Kind: "string"},
+					{Name: "instanceId", Kind: "string"},
+					{Name: "subscriptionMode", Enum: []string{"Push", "Pop"}},
+					{Name: "consumeType", Enum: []string{"CLUSTERING", "BROADCASTING"}},
+					{Name: "onlineInstances", Kind: "integer"},
+					{Name: "totalLag", Kind: "integer"},
+					{Name: "subscribedTopics", Kind: "array"},
+					{Name: "subscriptionDataType", Kind: "string"},
+					{Name: "deliveryOrderType", Kind: "string"},
+					{Name: "retryMaxTimes", Kind: "integer"},
+					{Name: "delaySeconds", Kind: "integer"},
+					{Name: "subscriptions", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "topic", Kind: "string"},
+							{Name: "expression", Kind: "string"},
+							{Name: "type", Kind: "string"},
+							{Name: "filterMode", Kind: "string"},
+							{Name: "consistency", Kind: "string"},
+						},
+					}},
+					{Name: "health", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "status", Enum: []string{"HEALTHY", "WARNING", "UNHEALTHY", "UNKNOWN"}},
+							{Name: "reasons", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -435,16 +822,34 @@ var defaultDocument = Document{
 			Description:          "Get queue-level consume progress and backlog for one RocketMQ consumer group, optionally filtered by topic.",
 			RiskLevel:            "L1",
 			Permission:           "group:read",
-			RequiredCapabilities: []string{"CONSUMER_GROUP_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "group", Flag: "group", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, MinLength: 1},
 				},
 			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "group", Kind: "string"},
+					{Name: "topic", Kind: "string"},
+					{Name: "totalLag", Kind: "integer"},
+					{Name: "queues", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "broker", Kind: "string"},
+							{Name: "queueId", Kind: "integer"},
+							{Name: "brokerOffset", Kind: "integer"},
+							{Name: "consumerOffset", Kind: "integer"},
+							{Name: "lag", Kind: "integer"},
+						},
+					}},
+				},
+			},
 			ViewHint:     "table",
 			TableDataKey: "queues",
+			TableColumns: []string{"broker", "queueId", "brokerOffset", "consumerOffset", "lag"},
 		},
 		{
 			Name:                 "rmq.group.clients",
@@ -452,16 +857,38 @@ var defaultDocument = Document{
 			Description:          "List online consumer clients for one RocketMQ consumer group.",
 			RiskLevel:            "L1",
 			Permission:           "group:read",
-			RequiredCapabilities: []string{"CONSUMER_GROUP_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "group", Flag: "group", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, MinLength: 1},
 				},
 			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "group", Kind: "string"},
+					{Name: "topic", Kind: "string"},
+					{Name: "totalClients", Kind: "integer"},
+					{Name: "clients", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "clientId", Kind: "string"},
+							{Name: "protocol", Enum: []string{"gRPC", "Remoting", "UNKNOWN"}},
+							{Name: "address", Kind: "string"},
+							{Name: "language", Kind: "string"},
+							{Name: "version", Kind: "string"},
+							{Name: "active", Kind: "boolean"},
+							{Name: "subscribedTopics", Kind: "array"},
+							{Name: "lastHeartbeat", Kind: "string"},
+							{Name: "topicLag", Kind: "object"},
+						},
+					}},
+				},
+			},
 			ViewHint:     "table",
 			TableDataKey: "clients",
+			TableColumns: []string{"clientId", "protocol", "address", "language", "version", "active", "subscribedTopics", "lastHeartbeat", "topicLag"},
 		},
 		{
 			Name:                 "rmq.group.create",
@@ -469,10 +896,10 @@ var defaultDocument = Document{
 			Description:          "Create a RocketMQ consumer group.",
 			RiskLevel:            "L2",
 			Permission:           "group:write",
-			RequiredCapabilities: []string{"CONSUMER_GROUP_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "group", Flag: "group", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "namespace", Flag: "namespace", Kind: StringField, MinLength: 1},
 					{Name: "subscriptionMode", Flag: "subscription-mode", Kind: StringField, Enum: []string{"Push", "Pop"}},
@@ -481,8 +908,25 @@ var defaultDocument = Document{
 					{Name: "deliveryOrderType", Flag: "delivery-order-type", Kind: StringField, MinLength: 1},
 					{Name: "retryMaxTimes", Flag: "retry-max-times", Kind: IntegerField, Minimum: 0, HasMinimum: true},
 					{Name: "delaySeconds", Flag: "delay-seconds", Kind: IntegerField, Minimum: 0, HasMinimum: true},
-					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object"},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -493,10 +937,10 @@ var defaultDocument = Document{
 			Description:          "Update a RocketMQ consumer group.",
 			RiskLevel:            "L2",
 			Permission:           "group:write",
-			RequiredCapabilities: []string{"CONSUMER_GROUP_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "group", Flag: "group", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "namespace", Flag: "namespace", Kind: StringField, MinLength: 1},
 					{Name: "subscriptionMode", Flag: "subscription-mode", Kind: StringField, Enum: []string{"Push", "Pop"}},
@@ -505,8 +949,8 @@ var defaultDocument = Document{
 					{Name: "deliveryOrderType", Flag: "delivery-order-type", Kind: StringField, MinLength: 1},
 					{Name: "retryMaxTimes", Flag: "retry-max-times", Kind: IntegerField, Minimum: 0, HasMinimum: true},
 					{Name: "delaySeconds", Flag: "delay-seconds", Kind: IntegerField, Minimum: 0, HasMinimum: true},
-					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 				},
 				AnyOf: []RequiredGroup{
 					{Required: []string{"namespace"}},
@@ -518,6 +962,23 @@ var defaultDocument = Document{
 					{Required: []string{"delaySeconds"}},
 				},
 			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object"},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
+				},
+			},
 			ViewHint: "object",
 		},
 		{
@@ -526,15 +987,32 @@ var defaultDocument = Document{
 			Description:          "Delete a RocketMQ consumer group.",
 			RiskLevel:            "L3",
 			Permission:           "group:delete",
-			RequiredCapabilities: []string{"CONSUMER_GROUP_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "group", Flag: "group", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
 					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "break_glass", Flag: "break-glass", Kind: BooleanField},
 					{Name: "reason", Flag: "reason", Kind: StringField, MinLength: 1},
-					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object"},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -543,19 +1021,43 @@ var defaultDocument = Document{
 			Name:                 "rmq.group.reset_offset",
 			CLI:                  CLI{Resource: "group", Verb: "reset-offset"},
 			Description:          "Reset consumer offset for a group on a topic to a timestamp.",
-			RiskLevel:            "L2",
+			RiskLevel:            "L3",
 			Permission:           "group:write",
-			RequiredCapabilities: []string{"CONSUMER_GROUP_MANAGEMENT", "REMOTING"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "group", Flag: "group", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "timestamp", Flag: "timestamp", Kind: IntegerField, Required: true},
+					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
 					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "break_glass", Flag: "break-glass", Kind: BooleanField},
 					{Name: "reason", Flag: "reason", Kind: StringField, MinLength: 1},
-					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "reset", Kind: "boolean"},
+							{Name: "group", Kind: "string"},
+							{Name: "topic", Kind: "string"},
+							{Name: "timestamp", Kind: "integer"},
+						},
+					}},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -564,16 +1066,41 @@ var defaultDocument = Document{
 			Name:                 "rmq.group.skip_accumulated",
 			CLI:                  CLI{Resource: "group", Verb: "skip-accumulated"},
 			Description:          "Skip accumulated messages by moving the actual consumer queues to their ends recorded in preview.",
-			RiskLevel:            "L2",
+			RiskLevel:            "L3",
 			Permission:           "group:write",
-			RequiredCapabilities: []string{"REMOTING"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "group", Flag: "group", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, MinLength: 1},
 					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
 					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
+					{Name: "break_glass", Flag: "break-glass", Kind: BooleanField},
+					{Name: "reason", Flag: "reason", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "skipped", Kind: "boolean"},
+							{Name: "group", Kind: "string"},
+							{Name: "topics", Kind: "array"},
+						},
+					}},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -587,12 +1114,31 @@ var defaultDocument = Document{
 			RequiredCapabilities: []string{"LITE_TOPIC"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "pattern", Flag: "pattern", Kind: StringField},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "name", Kind: "string"},
+							{Name: "namespace", Kind: "string"},
+							{Name: "clusterId", Kind: "string"},
+							{Name: "type", Enum: []string{"LITE"}},
+							{Name: "writeQueues", Kind: "integer"},
+							{Name: "readQueues", Kind: "integer"},
+							{Name: "perm", Enum: []string{"RW", "RO", "WO"}},
+							{Name: "messageCount", Kind: "integer"},
+							{Name: "tps", Kind: "number"},
+							{Name: "consumerGroupCount", Kind: "integer"},
+						},
+					}},
 				},
 			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"name", "namespace", "clusterId", "type", "writeQueues", "readQueues", "perm", "messageCount", "tps", "consumerGroupCount"},
 		},
 		{
 			Name:                 "rmq.lite_topic.create",
@@ -603,7 +1149,7 @@ var defaultDocument = Document{
 			RequiredCapabilities: []string{"LITE_TOPIC"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "namespace", Flag: "namespace", Kind: StringField},
 					{Name: "writeQueues", Flag: "write-queues", Kind: IntegerField, Minimum: 1, HasMinimum: true},
@@ -611,6 +1157,34 @@ var defaultDocument = Document{
 					{Name: "remark", Flag: "remark", Kind: StringField},
 					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
 					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "name", Kind: "string"},
+							{Name: "namespace", Kind: "string"},
+							{Name: "cluster", Kind: "string"},
+							{Name: "type", Kind: "string"},
+							{Name: "writeQueues", Kind: "integer"},
+							{Name: "readQueues", Kind: "integer"},
+							{Name: "perm", Kind: "string"},
+							{Name: "remark", Kind: "string"},
+						},
+					}},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -621,12 +1195,34 @@ var defaultDocument = Document{
 			Description:          "Return the message trace timeline for one message id.",
 			RiskLevel:            "L1",
 			Permission:           "message:read",
-			RequiredCapabilities: []string{"MESSAGE_TRACE"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "msgId", Flag: "msg-id", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "msgId", Kind: "string"},
+					{Name: "nodes", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "title", Kind: "string"},
+							{Name: "timestamp", Kind: "integer"},
+							{Name: "status", Kind: "string"},
+							{Name: "costTime", Kind: "integer"},
+							{Name: "description", Kind: "string"},
+						},
+					}},
+					{Name: "consumerStatus", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "group", Kind: "string"},
+							{Name: "deliveryStatus", Kind: "string"},
+							{Name: "consumeTime", Kind: "integer"},
+							{Name: "retryCount", Kind: "integer"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -637,16 +1233,36 @@ var defaultDocument = Document{
 			Description:          "Query a single RocketMQ message by its message id within a topic.",
 			RiskLevel:            "L1",
 			Permission:           "message:read",
-			RequiredCapabilities: []string{"MESSAGE_QUERY"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "msgId", Flag: "msg-id", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, Required: true, MinLength: 1},
 				},
 			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "msgId", Kind: "string"},
+							{Name: "topic", Kind: "string"},
+							{Name: "tag", Kind: "string"},
+							{Name: "key", Kind: "string"},
+							{Name: "storeTime", Kind: "integer"},
+							{Name: "storeHost", Kind: "string"},
+							{Name: "bornHost", Kind: "string"},
+							{Name: "body", Kind: "string"},
+							{Name: "bodyEncoding", Kind: "string"},
+							{Name: "bodyTruncated", Kind: "boolean"},
+							{Name: "size", Kind: "integer"},
+						},
+					}},
+				},
+			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"msgId", "topic", "tag", "key", "storeTime", "storeHost", "bornHost", "body", "bodyEncoding", "bodyTruncated", "size"},
 		},
 		{
 			Name:                 "rmq.message.query_by_key",
@@ -654,18 +1270,38 @@ var defaultDocument = Document{
 			Description:          "Query RocketMQ messages by business key within a topic.",
 			RiskLevel:            "L1",
 			Permission:           "message:read",
-			RequiredCapabilities: []string{"MESSAGE_QUERY"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "key", Flag: "key", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "startTime", Flag: "start-time", Kind: IntegerField},
 					{Name: "endTime", Flag: "end-time", Kind: IntegerField},
 				},
 			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "msgId", Kind: "string"},
+							{Name: "topic", Kind: "string"},
+							{Name: "tag", Kind: "string"},
+							{Name: "key", Kind: "string"},
+							{Name: "storeTime", Kind: "integer"},
+							{Name: "storeHost", Kind: "string"},
+							{Name: "bornHost", Kind: "string"},
+							{Name: "body", Kind: "string"},
+							{Name: "bodyEncoding", Kind: "string"},
+							{Name: "bodyTruncated", Kind: "boolean"},
+							{Name: "size", Kind: "integer"},
+						},
+					}},
+				},
+			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"msgId", "topic", "tag", "key", "storeTime", "storeHost", "bornHost", "body", "bodyEncoding", "bodyTruncated", "size"},
 		},
 		{
 			Name:                 "rmq.message.query_by_topic",
@@ -673,18 +1309,38 @@ var defaultDocument = Document{
 			Description:          "Query RocketMQ messages by topic and optional time range in one cluster.",
 			RiskLevel:            "L1",
 			Permission:           "message:read",
-			RequiredCapabilities: []string{"MESSAGE_QUERY"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "tag", Flag: "tag", Kind: StringField},
 					{Name: "startTime", Flag: "start-time", Kind: IntegerField},
 					{Name: "endTime", Flag: "end-time", Kind: IntegerField},
 				},
 			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "msgId", Kind: "string"},
+							{Name: "topic", Kind: "string"},
+							{Name: "tag", Kind: "string"},
+							{Name: "key", Kind: "string"},
+							{Name: "storeTime", Kind: "integer"},
+							{Name: "storeHost", Kind: "string"},
+							{Name: "bornHost", Kind: "string"},
+							{Name: "body", Kind: "string"},
+							{Name: "bodyEncoding", Kind: "string"},
+							{Name: "bodyTruncated", Kind: "boolean"},
+							{Name: "size", Kind: "integer"},
+						},
+					}},
+				},
+			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"msgId", "topic", "tag", "key", "storeTime", "storeHost", "bornHost", "body", "bodyEncoding", "bodyTruncated", "size"},
 		},
 		{
 			Name:                 "rmq.message.resend",
@@ -692,15 +1348,39 @@ var defaultDocument = Document{
 			Description:          "Republish an existing message to its original topic or a selected target topic.",
 			RiskLevel:            "L2",
 			Permission:           "message:write",
-			RequiredCapabilities: []string{"REMOTING"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "msgId", Flag: "msg-id", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "sourceTopic", Flag: "source-topic", Kind: StringField, MinLength: 1},
 					{Name: "targetTopic", Flag: "target-topic", Kind: StringField, MinLength: 1},
 					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
 					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "resent", Kind: "boolean"},
+							{Name: "originalMsgId", Kind: "string"},
+							{Name: "newMsgId", Kind: "string"},
+							{Name: "targetTopic", Kind: "string"},
+						},
+					}},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -714,13 +1394,36 @@ var defaultDocument = Document{
 			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "metric", Flag: "metric", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "profileId", Flag: "profile-id", Kind: StringField},
 					{Name: "semanticMetric", Flag: "semantic-metric", Kind: StringField},
 					{Name: "start", Flag: "start", Description: "Unix timestamp in seconds (PromQL query_range start).", Kind: IntegerField, Required: true},
 					{Name: "end", Flag: "end", Description: "Unix timestamp in seconds (PromQL query_range end).", Kind: IntegerField, Required: true},
 					{Name: "step", Flag: "step", Description: "PromQL step duration, e.g. \"15s\", \"1m\".", Kind: StringField},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "resultType", Kind: "string"},
+					{Name: "series", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "labels", Kind: "object"},
+							{Name: "values", Kind: "array", ArrayItem: &OutputSchema{
+								Fields: []OutputField{
+									{Name: "timestamp", Kind: "number"},
+									{Name: "value", Kind: "string"},
+								},
+							}},
+							{Name: "histograms", Kind: "array|null", ArrayItem: &OutputSchema{
+								Fields: []OutputField{
+									{Name: "timestamp", Kind: "number"},
+									{Name: "histogram"},
+								},
+							}},
+						},
+					}},
+					{Name: "warnings", Kind: "array"},
 				},
 			},
 			ViewHint: "object",
@@ -731,10 +1434,38 @@ var defaultDocument = Document{
 			Description:          "Compare configuration of the selected Instance management NameServer endpoints.",
 			RiskLevel:            "L1",
 			Permission:           "cluster:read",
-			RequiredCapabilities: []string{"NAMESERVER_ADMIN"},
+			RequiredCapabilities: []string{"ROCKETMQ_4", "ROCKETMQ_5"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "complete", Kind: "boolean"},
+					{Name: "driftDetected", Kind: "boolean"},
+					{Name: "nodeCount", Kind: "integer"},
+					{Name: "reachableNodeCount", Kind: "integer"},
+					{Name: "comparedKeys", Kind: "array"},
+					{Name: "nodes", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "address", Kind: "string"},
+							{Name: "reachable", Kind: "boolean"},
+						},
+					}},
+					{Name: "differences", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "key", Kind: "string"},
+							{Name: "values", Kind: "array", ArrayItem: &OutputSchema{
+								Fields: []OutputField{
+									{Name: "address", Kind: "string"},
+									{Name: "configured", Kind: "boolean"},
+									{Name: "value", Kind: "string|null"},
+								},
+							}},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -745,14 +1476,31 @@ var defaultDocument = Document{
 			Description:          "List the management NameServer endpoints configured for the selected Instance.",
 			RiskLevel:            "L1",
 			Permission:           "nameserver:read",
-			RequiredCapabilities: []string{"NAMESERVER_ADMIN"},
+			RequiredCapabilities: []string{"ROCKETMQ_4", "ROCKETMQ_5"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "id", Kind: "string"},
+							{Name: "name", Kind: "string"},
+							{Name: "namesrvAddr", Kind: "string"},
+							{Name: "k8sNamespace", Kind: "string|null"},
+							{Name: "k8sId", Kind: "string|null"},
+							{Name: "status", Kind: "string"},
+							{Name: "description", Kind: "string|null"},
+						},
+					}},
 				},
 			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"id", "name", "namesrvAddr", "k8sNamespace", "k8sId", "status", "description"},
 		},
 		{
 			Name:                 "rmq.proxy.config_update",
@@ -760,15 +1508,37 @@ var defaultDocument = Document{
 			Description:          "Reload a Proxy configuration through an Instance management adapter; unsupported when no adapter is configured.",
 			RiskLevel:            "L3",
 			Permission:           "proxy:write",
-			RequiredCapabilities: []string{"PROXY_ADMIN"},
+			RequiredCapabilities: []string{"ROCKETMQ_5"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "addr", Flag: "addr", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
 					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "break_glass", Flag: "break-glass", Kind: BooleanField},
 					{Name: "reason", Flag: "reason", Kind: StringField, MinLength: 1},
-					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "reloaded", Kind: "boolean"},
+							{Name: "addr", Kind: "string"},
+						},
+					}},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -779,14 +1549,30 @@ var defaultDocument = Document{
 			Description:          "Inspect discovered Proxy data endpoints within the selected Instance.",
 			RiskLevel:            "L1",
 			Permission:           "proxy:read",
-			RequiredCapabilities: []string{"PROXY_DISCOVERY"},
+			RequiredCapabilities: []string{"ROCKETMQ_5"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "proxyAddr", Kind: "string"},
+							{Name: "status", Kind: "string"},
+							{Name: "grpcPort", Kind: "integer"},
+							{Name: "remotingPort", Kind: "integer|null"},
+							{Name: "grpcReachable", Kind: "boolean"},
+							{Name: "remotingReachable", Kind: "boolean"},
+							{Name: "latencyMs", Kind: "integer|null"},
+						},
+					}},
 				},
 			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"proxyAddr", "status", "grpcPort", "remotingPort", "grpcReachable", "remotingReachable", "latencyMs"},
 		},
 		{
 			Name:                 "rmq.proxy.list",
@@ -794,14 +1580,29 @@ var defaultDocument = Document{
 			Description:          "Discover Proxy data endpoints from the selected Instance. Discovery does not establish Broker cluster membership or management capability.",
 			RiskLevel:            "L1",
 			Permission:           "proxy:read",
-			RequiredCapabilities: []string{"PROXY_DISCOVERY"},
+			RequiredCapabilities: []string{"ROCKETMQ_5"},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "addr", Kind: "string"},
+							{Name: "status", Kind: "string|null"},
+							{Name: "connections", Kind: "integer"},
+							{Name: "grpcPort", Kind: "integer"},
+							{Name: "remotingPort", Kind: "integer"},
+						},
+					}},
 				},
 			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"addr", "status", "connections", "grpcPort", "remotingPort"},
 		},
 		{
 			Name:                 "rmq.topic.list",
@@ -809,16 +1610,32 @@ var defaultDocument = Document{
 			Description:          "List RocketMQ topics in one Studio cluster.",
 			RiskLevel:            "L1",
 			Permission:           "topic:read",
-			RequiredCapabilities: []string{"TOPIC_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "type", Flag: "type", Kind: StringField, Enum: []string{"NORMAL", "FIFO", "DELAY", "TRANSACTION", "LITE"}},
 					{Name: "search", Flag: "search", Kind: StringField, MinLength: 1},
 				},
 			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "clusterId", Kind: "string"},
+							{Name: "name", Kind: "string"},
+							{Name: "namespace", Kind: "string"},
+							{Name: "perm", Enum: []string{"RW", "RO", "WO"}},
+							{Name: "type", Enum: []string{"NORMAL", "FIFO", "DELAY", "TRANSACTION", "LITE"}},
+							{Name: "writeQueues", Kind: "integer"},
+							{Name: "readQueues", Kind: "integer"},
+						},
+					}},
+				},
+			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"clusterId", "name", "namespace", "perm", "type", "writeQueues", "readQueues"},
 		},
 		{
 			Name:                 "rmq.topic.create",
@@ -826,10 +1643,10 @@ var defaultDocument = Document{
 			Description:          "Create a RocketMQ topic.",
 			RiskLevel:            "L2",
 			Permission:           "topic:write",
-			RequiredCapabilities: []string{"TOPIC_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "namespace", Flag: "namespace", Kind: StringField, MinLength: 1},
 					{Name: "type", Flag: "type", Kind: StringField, Enum: []string{"NORMAL", "FIFO", "DELAY", "TRANSACTION", "LITE"}},
@@ -837,8 +1654,25 @@ var defaultDocument = Document{
 					{Name: "readQueues", Flag: "read-queues", Kind: IntegerField, Minimum: 1, HasMinimum: true},
 					{Name: "perm", Flag: "perm", Kind: StringField, Enum: []string{"RW", "RO", "WO"}},
 					{Name: "remark", Flag: "remark", Kind: StringField},
-					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object"},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -849,10 +1683,10 @@ var defaultDocument = Document{
 			Description:          "Update a RocketMQ topic.",
 			RiskLevel:            "L2",
 			Permission:           "topic:write",
-			RequiredCapabilities: []string{"TOPIC_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "namespace", Flag: "namespace", Kind: StringField, MinLength: 1},
 					{Name: "type", Flag: "type", Kind: StringField, Enum: []string{"NORMAL", "FIFO", "DELAY", "TRANSACTION", "LITE"}},
@@ -860,8 +1694,8 @@ var defaultDocument = Document{
 					{Name: "readQueues", Flag: "read-queues", Kind: IntegerField, Minimum: 1, HasMinimum: true},
 					{Name: "perm", Flag: "perm", Kind: StringField, Enum: []string{"RW", "RO", "WO"}},
 					{Name: "remark", Flag: "remark", Kind: StringField},
-					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 				},
 				AnyOf: []RequiredGroup{
 					{Required: []string{"type"}},
@@ -871,20 +1705,64 @@ var defaultDocument = Document{
 					{Required: []string{"remark"}},
 				},
 			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object"},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
+				},
+			},
 			ViewHint: "object",
 		},
 		{
 			Name:                 "rmq.topic.describe",
 			CLI:                  CLI{Resource: "topic", Verb: "describe"},
-			Description:          "Describe one RocketMQ topic, including configuration, consumer groups and broker routes.",
+			Description:          "Describe one RocketMQ topic, including configuration, consumer groups and a summary of broker names. For detailed broker route info, use rmq.topic.route.",
 			RiskLevel:            "L1",
 			Permission:           "topic:read",
-			RequiredCapabilities: []string{"TOPIC_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "namespace", Flag: "namespace", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "cluster", Kind: "string"},
+					{Name: "name", Kind: "string"},
+					{Name: "namespace", Kind: "string"},
+					{Name: "clusterId", Kind: "string"},
+					{Name: "type", Enum: []string{"NORMAL", "FIFO", "DELAY", "TRANSACTION", "LITE"}},
+					{Name: "writeQueues", Kind: "integer"},
+					{Name: "readQueues", Kind: "integer"},
+					{Name: "perm", Enum: []string{"RW", "RO", "WO"}},
+					{Name: "messageCount", Kind: "integer"},
+					{Name: "tps", Kind: "number"},
+					{Name: "consumerGroupCount", Kind: "integer"},
+					{Name: "remark", Kind: "string"},
+					{Name: "consumerGroups", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "group", Kind: "string"},
+							{Name: "consumeType", Kind: "string"},
+							{Name: "messageModel", Kind: "string"},
+							{Name: "consumeTps", Kind: "number"},
+							{Name: "diffTotal", Kind: "integer"},
+							{Name: "metricsAvailable", Kind: "boolean"},
+						},
+					}},
+					{Name: "brokerNames", Kind: "array"},
 				},
 			},
 			ViewHint: "object",
@@ -892,19 +1770,41 @@ var defaultDocument = Document{
 		{
 			Name:                 "rmq.topic.route",
 			CLI:                  CLI{Resource: "topic", Verb: "route"},
-			Description:          "Return the broker route info for one RocketMQ topic.",
+			Description:          "Return detailed broker route info for one RocketMQ topic, including broker addresses, queue counts, permissions and replica details. Use rmq.topic.describe for a topic overview.",
 			RiskLevel:            "L1",
 			Permission:           "topic:read",
-			RequiredCapabilities: []string{"TOPIC_MANAGEMENT", "REMOTING"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "namespace", Flag: "namespace", Kind: StringField, MinLength: 1},
 				},
 			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "brokerName", Kind: "string"},
+							{Name: "brokerAddr", Kind: "string"},
+							{Name: "masterAddr", Kind: "string"},
+							{Name: "brokerAddrs", Kind: "object"},
+							{Name: "brokerIds", Kind: "array"},
+							{Name: "replicaCount", Kind: "integer"},
+							{Name: "writeQueues", Kind: "integer"},
+							{Name: "readQueues", Kind: "integer"},
+							{Name: "perm", Kind: "string"},
+							{Name: "permCode", Kind: "integer"},
+							{Name: "readable", Kind: "boolean"},
+							{Name: "writable", Kind: "boolean"},
+							{Name: "topicSysFlag", Kind: "integer"},
+						},
+					}},
+				},
+			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"brokerName", "brokerAddr", "masterAddr", "brokerAddrs", "brokerIds", "replicaCount", "writeQueues", "readQueues", "perm", "permCode", "readable", "writable", "topicSysFlag"},
 		},
 		{
 			Name:                 "rmq.topic.send",
@@ -912,17 +1812,40 @@ var defaultDocument = Document{
 			Description:          "Send one message to a RocketMQ topic.",
 			RiskLevel:            "L2",
 			Permission:           "topic:write",
-			RequiredCapabilities: []string{"TOPIC_MANAGEMENT", "REMOTING"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "tag", Flag: "tag", Kind: StringField},
 					{Name: "key", Flag: "key", Kind: StringField},
 					{Name: "body", Flag: "body", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "properties", Flag: "properties", Description: "JSON object string of message properties, e.g. '{\"key1\":\"value1\"}'.", Kind: StringField},
-					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "msgId", Kind: "string"},
+							{Name: "offsetMsgId", Kind: "string"},
+							{Name: "sendTime", Kind: "integer"},
+						},
+					}},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -933,15 +1856,32 @@ var defaultDocument = Document{
 			Description:          "Delete a RocketMQ topic.",
 			RiskLevel:            "L3",
 			Permission:           "topic:delete",
-			RequiredCapabilities: []string{"TOPIC_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "topic", Flag: "topic", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
 					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "break_glass", Flag: "break-glass", Kind: BooleanField},
 					{Name: "reason", Flag: "reason", Kind: StringField, MinLength: 1},
-					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object"},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -952,14 +1892,27 @@ var defaultDocument = Document{
 			Description:          "List RocketMQ ACL users without exposing access or secret keys.",
 			RiskLevel:            "L1",
 			Permission:           "acl:read",
-			RequiredCapabilities: []string{"ACL_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "items", Kind: "array", ArrayItem: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "id", Kind: "string"},
+							{Name: "username", Kind: "string"},
+							{Name: "admin", Kind: "boolean"},
+							{Name: "clusters", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint:     "table",
 			TableDataKey: "items",
+			TableColumns: []string{"id", "username", "admin", "clusters"},
 		},
 		{
 			Name:                 "rmq.user.create",
@@ -967,10 +1920,10 @@ var defaultDocument = Document{
 			Description:          "Create a RocketMQ ACL user while keeping generated credentials out of tool output.",
 			RiskLevel:            "L3",
 			Permission:           "acl:write",
-			RequiredCapabilities: []string{"ACL_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "username", Flag: "username", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "admin", Flag: "admin", Kind: BooleanField},
 					{Name: "clusters", Flag: "clusters", Kind: StringSliceField},
@@ -978,6 +1931,30 @@ var defaultDocument = Document{
 					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "break_glass", Flag: "break-glass", Kind: BooleanField},
 					{Name: "reason", Flag: "reason", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "id", Kind: "string"},
+							{Name: "username", Kind: "string"},
+							{Name: "admin", Kind: "boolean"},
+							{Name: "clusters", Kind: "array"},
+						},
+					}},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",
@@ -988,15 +1965,36 @@ var defaultDocument = Document{
 			Description:          "Delete a RocketMQ ACL user by identifier.",
 			RiskLevel:            "L3",
 			Permission:           "acl:write",
-			RequiredCapabilities: []string{"ACL_MANAGEMENT"},
+			RequiredCapabilities: []string{},
 			InputSchema: InputSchema{
 				Fields: []Field{
-					{Name: "cluster", Flag: "cluster", Description: "Studio Instance identifier; rmqctl supplies this from the selected context.", Kind: StringField, Required: true, MinLength: 1},
+					{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "id", Flag: "id", Kind: StringField, Required: true, MinLength: 1},
 					{Name: "dry_run", Flag: "dry-run", Description: "When true, preview the mutation without executing it; omit to apply with a confirm_token.", Kind: BooleanField},
 					{Name: "confirm_token", Flag: "confirm-token", Kind: StringField, MinLength: 1},
 					{Name: "break_glass", Flag: "break-glass", Kind: BooleanField},
 					{Name: "reason", Flag: "reason", Kind: StringField, MinLength: 1},
+				},
+			},
+			OutputSchema: OutputSchema{
+				Fields: []OutputField{
+					{Name: "result", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "deleted", Kind: "boolean"},
+						},
+					}},
+					{Name: "status", Enum: []string{"PLANNED", "EXECUTED"}},
+					{Name: "cluster", Kind: "string"},
+					{Name: "confirm_token", Kind: "string"},
+					{Name: "plan", Kind: "object", Object: &OutputSchema{
+						Fields: []OutputField{
+							{Name: "before", Kind: "object"},
+							{Name: "after", Kind: "object"},
+							{Name: "summary", Kind: "string"},
+							{Name: "impact", Kind: "array"},
+							{Name: "warnings", Kind: "array"},
+						},
+					}},
 				},
 			},
 			ViewHint: "object",

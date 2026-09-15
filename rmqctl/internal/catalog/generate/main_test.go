@@ -51,11 +51,23 @@ tools:
           minLength: 1
     outputSchema:
       type: object
+      required:
+        - items
       properties:
         items:
           type: array
           items:
             type: object
+            required:
+              - id
+              - name
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              status:
+                type: string
     viewHint: table
 `
 	if err := os.WriteFile(input, []byte(source), 0o600); err != nil {
@@ -79,6 +91,11 @@ tools:
 		`{Name: "cluster", Flag: "cluster", Kind: StringField, Required: true, MinLength: 1}`,
 		`{Name: "status", Flag: "status", Kind: StringField, MinLength: 1}`,
 		`TableDataKey: "items"`,
+		`TableColumns: []string{"id", "name", "status"}`,
+		`{Name: "items", Kind: "array", ArrayItem: &OutputSchema{`,
+		`{Name: "id", Kind: "string"}`,
+		`{Name: "name", Kind: "string"}`,
+		`{Name: "status", Kind: "string"}`,
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("generated catalog does not contain %q\n%s", expected, text)

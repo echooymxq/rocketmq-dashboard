@@ -129,8 +129,7 @@ func executeTestAppWithStdin(t *testing.T, client *http.Client, serverURL, insta
 	app.HTTP = client
 	app.Store.Getenv = testEnv
 	app.confirm = func(in io.Reader, out io.Writer, commandPath, riskLevel, server string) error {
-		fmt.Fprintf(out, "WARNING: %q is a %s operation.\n", commandPath, riskLevel)
-		fmt.Fprintf(out, "Arguments will be sent to %s. Type \"yes\" to continue: ", server)
+		fmt.Fprintf(out, "Apply this plan? Type \"yes\" to continue: ")
 		reader := bufio.NewReader(in)
 		answer, err := reader.ReadString('\n')
 		if err != nil {

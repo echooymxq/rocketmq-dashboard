@@ -34,7 +34,7 @@ func TestToolCallSummary(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, expected := range []string{
-		"dev", "PLANNED", "confirmation-token", "Create topic orders",
+		"dev", "PLANNED", "Create topic orders",
 	} {
 		if !strings.Contains(buf.String(), expected) {
 			t.Fatalf("output missing %q:\n%s", expected, buf)

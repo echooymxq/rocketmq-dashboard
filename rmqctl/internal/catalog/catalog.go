@@ -44,8 +44,10 @@ type Tool struct {
 	Permission           string
 	RequiredCapabilities []string
 	InputSchema          InputSchema
+	OutputSchema         OutputSchema
 	ViewHint             string
 	TableDataKey         string
+	TableColumns         []string
 	Deprecated           bool
 	Replacement          string
 }
@@ -76,6 +78,21 @@ type Field struct {
 	MinLength   int
 	// Object retains the JSON nesting; only its leaf fields have CLI flags.
 	Object *InputSchema
+}
+
+type OutputSchema struct {
+	Fields []OutputField
+}
+
+type OutputField struct {
+	Name        string
+	Kind        string
+	Description string
+	Enum        []string
+	// Object is the nested schema for object-typed properties.
+	Object *OutputSchema
+	// ArrayItem is the schema for array item properties.
+	ArrayItem *OutputSchema
 }
 
 // Default returns the built-in tool catalog document.

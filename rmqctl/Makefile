@@ -26,7 +26,7 @@ LDFLAGS = -s -w \
 	-X 'github.com/apache/rocketmq-dashboard/rmqctl/cmd.GitCommit=$(GIT_COMMIT)' \
 	-X 'github.com/apache/rocketmq-dashboard/rmqctl/cmd.BuildDate=$(BUILD_DATE)'
 
-CATALOG_SOURCE := ../server/src/main/resources/tool-catalog/tools
+CATALOG_SOURCE := /Users/echooymxq/repository/private/0912/rocketmq-dashboard/server/src/main/resources/tool-catalog/tools
 CATALOG_GENERATED := internal/catalog/catalog_gen.go
 CATALOG_GENERATOR := ./internal/catalog/generate
 CATALOG_MARKDOWN := ../docs/generated/rmq-tools.md

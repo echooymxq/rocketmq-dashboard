@@ -81,9 +81,11 @@ func assertToolFields(t *testing.T, tool Tool) {
 		}
 	}
 	assertSchema(tool.InputSchema)
-	cluster, ok := tool.InputSchema.Field("cluster")
-	if !ok || !cluster.Required || cluster.Kind != StringField {
-		t.Errorf("tool %q must require a string cluster field", tool.Name)
+	if tool.Name != "rmq.cluster.list" {
+		cluster, ok := tool.InputSchema.Field("cluster")
+		if !ok || !cluster.Required || cluster.Kind != StringField {
+			t.Errorf("tool %q must require a string cluster field", tool.Name)
+		}
 	}
 }
 

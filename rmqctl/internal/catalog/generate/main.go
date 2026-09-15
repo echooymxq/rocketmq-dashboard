@@ -41,17 +41,17 @@ type catalogDocument struct {
 }
 
 type toolSpec struct {
-	Name                 string         `yaml:"name"`
-	CLI                  cliSpec        `yaml:"cli"`
-	Description          string         `yaml:"description"`
-	RiskLevel            string         `yaml:"riskLevel"`
-	Permission           string         `yaml:"permission"`
-	RequiredCapabilities []string       `yaml:"requiredCapabilities"`
-	InputSchema          inputSchema    `yaml:"inputSchema"`
-	OutputSchema         map[string]any `yaml:"outputSchema"`
-	ViewHint             string         `yaml:"viewHint"`
-	Deprecated           bool           `yaml:"deprecated"`
-	Replacement          string         `yaml:"replacement"`
+	Name                 string       `yaml:"name"`
+	CLI                  cliSpec      `yaml:"cli"`
+	Description          string       `yaml:"description"`
+	RiskLevel            string       `yaml:"riskLevel"`
+	Permission           string       `yaml:"permission"`
+	RequiredCapabilities []string     `yaml:"requiredCapabilities"`
+	InputSchema          inputSchema  `yaml:"inputSchema"`
+	OutputSchema         outputSchema `yaml:"outputSchema"`
+	ViewHint             string       `yaml:"viewHint"`
+	Deprecated           bool         `yaml:"deprecated"`
+	Replacement          string       `yaml:"replacement"`
 }
 
 type cliSpec struct {
@@ -82,6 +82,33 @@ type property struct {
 	AnyOf                []requiredGroup     `yaml:"anyOf,omitempty" json:"anyOf,omitempty"`
 }
 
+// outputSchema is the ordered representation of a tool's outputSchema. It
+// preserves the YAML property declaration order, which map[string]any would
+// lose. Only the subset of JSON Schema keywords used by the catalog is
+// supported: type, description, enum, properties, items, required, and
+// additionalProperties.
+type outputSchema struct {
+	Type                 string                `yaml:"type" json:"type,omitempty"`
+	Description          string                `yaml:"description" json:"description,omitempty"`
+	Enum                 []string              `yaml:"enum" json:"enum,omitempty"`
+	Required             []string              `yaml:"required" json:"required,omitempty"`
+	Properties           map[string]outputProp `yaml:"properties" json:"properties,omitempty"`
+	PropertyOrder        []string              `yaml:"-" json:"-"`
+	Items                *outputProp           `yaml:"items" json:"items,omitempty"`
+	AdditionalProperties any                   `yaml:"additionalProperties" json:"additionalProperties,omitempty"`
+}
+
+type outputProp struct {
+	Type                 any                   `yaml:"type" json:"type,omitempty"`
+	Description          string                `yaml:"description" json:"description,omitempty"`
+	Enum                 []string              `yaml:"enum" json:"enum,omitempty"`
+	Required             []string              `yaml:"required" json:"required,omitempty"`
+	Properties           map[string]outputProp `yaml:"properties" json:"properties,omitempty"`
+	PropertyOrder        []string              `yaml:"-" json:"-"`
+	Items                *outputProp           `yaml:"items" json:"items,omitempty"`
+	AdditionalProperties any                   `yaml:"additionalProperties" json:"additionalProperties,omitempty"`
+}
+
 // The go* types are the generator's compiled representation. They contain
 // exactly the values needed by the Go template, keeping presentation logic out
 // of the catalog model and the template itself.
@@ -100,8 +127,10 @@ type goTool struct {
 	Permission           string
 	RequiredCapabilities []string
 	InputSchema          goInputSchema
+	OutputSchema         goOutputSchema
 	ViewHint             string
 	TableDataKey         string
+	TableColumns         []string
 	Deprecated           bool
 	Replacement          string
 }
@@ -130,6 +159,19 @@ type goField struct {
 	Minimum     *float64
 	MinLength   int
 	Object      *goInputSchema
+}
+
+type goOutputSchema struct {
+	Fields []goOutputField
+}
+
+type goOutputField struct {
+	Name        string
+	Kind        string
+	Description string
+	Enum        []string
+	Object      *goOutputSchema
+	ArrayItem   *goOutputSchema
 }
 
 const goCatalogTemplate = `/*
@@ -181,9 +223,21 @@ var defaultDocument = Document{
 				},
 {{- end }}
 			},
+			OutputSchema: OutputSchema{
+{{- if .OutputSchema.Fields }}
+				Fields: []OutputField{
+{{- range .OutputSchema.Fields }}
+					{{ template "outputField" . }},
+{{- end }}
+				},
+{{- end }}
+			},
 			ViewHint: {{ quote .ViewHint }},
 {{- if .TableDataKey }}
 			TableDataKey: {{ quote .TableDataKey }},
+{{- end }}
+{{- if .TableColumns }}
+			TableColumns: {{ stringSlice .TableColumns }},
 {{- end }}
 {{- if .Deprecated }}
 			Deprecated: true,
@@ -202,6 +256,15 @@ var defaultDocument = Document{
 	{{ if .AnyOf }}AnyOf: []RequiredGroup{
 	{{ range .AnyOf }}{Required: {{ stringSlice .Required }}},
 	{{ end }}},{{ end }}
+}{{ end }}}{{ end }}
+{{ define "outputField" }}{Name: {{ quote .Name }}{{ if .Kind }}, Kind: {{ quote .Kind }}{{ end }}{{ if .Description }}, Description: {{ quote .Description }}{{ end }}{{ if .Enum }}, Enum: {{ stringSlice .Enum }}{{ end }}{{ with .Object }}, Object: &OutputSchema{
+	Fields: []OutputField{
+	{{ range .Fields }}{{ template "outputField" . }},
+	{{ end }}},
+}{{ end }}{{ with .ArrayItem }}, ArrayItem: &OutputSchema{
+	Fields: []OutputField{
+	{{ range .Fields }}{{ template "outputField" . }},
+	{{ end }}},
 }{{ end }}}{{ end }}
 `
 
@@ -255,6 +318,45 @@ func (schema *property) UnmarshalYAML(node *yaml.Node) error {
 			schema.PropertyOrder = append(schema.PropertyOrder, properties.Content[propertyIndex].Value)
 		}
 		break
+	}
+	return nil
+}
+
+func (schema *outputSchema) UnmarshalYAML(node *yaml.Node) error {
+	type rawOutputSchema outputSchema
+	var raw rawOutputSchema
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+	*schema = outputSchema(raw)
+	schema.PropertyOrder = outputPropertyOrder(node)
+	return nil
+}
+
+func (prop *outputProp) UnmarshalYAML(node *yaml.Node) error {
+	type rawOutputProp outputProp
+	var raw rawOutputProp
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+	*prop = outputProp(raw)
+	prop.PropertyOrder = outputPropertyOrder(node)
+	return nil
+}
+
+// outputPropertyOrder extracts the declaration order of properties from a YAML
+// mapping node, preserving the source order that map[string]any would lose.
+func outputPropertyOrder(node *yaml.Node) []string {
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		if node.Content[index].Value != "properties" {
+			continue
+		}
+		properties := node.Content[index+1]
+		var order []string
+		for propertyIndex := 0; propertyIndex+1 < len(properties.Content); propertyIndex += 2 {
+			order = append(order, properties.Content[propertyIndex].Value)
+		}
+		return order
 	}
 	return nil
 }
@@ -422,7 +524,27 @@ func loadShards(dir string) ([]byte, error) {
 		}
 	}
 
-	return buf.Bytes(), nil
+	// Expand $ref and allOf in the merged YAML. We operate on yaml.Node
+	// to preserve key ordering (map[string]any would lose property order).
+	merged := buf.Bytes()
+	var root yaml.Node
+	if err := yaml.Unmarshal(merged, &root); err != nil {
+		return nil, fmt.Errorf("parse merged YAML for expansion: %w", err)
+	}
+	var defsDoc struct {
+		Defs yaml.Node `yaml:"$defs"`
+	}
+	if err := yaml.Unmarshal(manifestBytes, &defsDoc); err != nil {
+		return nil, fmt.Errorf("parse manifest $defs: %w", err)
+	}
+	var defsNode *yaml.Node
+	if defsDoc.Defs.Kind != 0 {
+		defsNode = &defsDoc.Defs
+	}
+	if err := expandNode(&root, defsNode); err != nil {
+		return nil, fmt.Errorf("expand $ref/allOf: %w", err)
+	}
+	return yaml.Marshal(&root)
 }
 
 func indentYAMLBlock(data []byte) string {
@@ -443,6 +565,176 @@ func indentYAMLBlock(data []byte) string {
 		b.WriteString("\n")
 	}
 	return b.String()
+}
+
+// expandNode recursively expands $ref and allOf in a yaml.Node tree.
+func expandNode(node *yaml.Node, defs *yaml.Node) error {
+	if node == nil {
+		return nil
+	}
+	switch node.Kind {
+	case yaml.DocumentNode:
+		for _, child := range node.Content {
+			if err := expandNode(child, defs); err != nil {
+				return err
+			}
+		}
+	case yaml.SequenceNode:
+		for _, child := range node.Content {
+			if err := expandNode(child, defs); err != nil {
+				return err
+			}
+		}
+	case yaml.MappingNode:
+		return expandMapping(node, defs)
+	}
+	return nil
+}
+
+// expandMapping handles a mapping node that may contain $ref or allOf.
+func expandMapping(node *yaml.Node, defs *yaml.Node) error {
+	// Recursively expand child values first
+	for i := 1; i < len(node.Content); i += 2 {
+		if err := expandNode(node.Content[i], defs); err != nil {
+			return err
+		}
+	}
+
+	// Resolve $ref
+	refNode := mapGet(node, "$ref")
+	if refNode != nil {
+		refPath := refNode.Value
+		prefix := "#/$defs/"
+		if !strings.HasPrefix(refPath, prefix) {
+			return fmt.Errorf("unsupported $ref: %s", refPath)
+		}
+		defName := strings.TrimPrefix(refPath, prefix)
+		var defNode *yaml.Node
+		if defs != nil && defs.Kind == yaml.MappingNode {
+			for i := 0; i+1 < len(defs.Content); i += 2 {
+				if defs.Content[i].Value == defName {
+					defNode = defs.Content[i+1]
+					break
+				}
+			}
+		}
+		if defNode == nil {
+			return fmt.Errorf("unknown $ref target: %s", refPath)
+		}
+		// Deep copy the def, expand it, then merge with current node's own keys
+		merged := cloneNode(defNode)
+		if err := expandNode(merged, defs); err != nil {
+			return err
+		}
+		// Overlay current node's keys (except $ref) onto the merged def
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			if node.Content[i].Value == "$ref" {
+				continue
+			}
+			mapSet(merged, node.Content[i].Value, node.Content[i+1])
+		}
+		// Replace current node's content with merged content
+		node.Content = merged.Content
+		node.Tag = merged.Tag
+	}
+
+	// Merge allOf
+	allOfNode := mapGet(node, "allOf")
+	if allOfNode != nil {
+		if allOfNode.Kind != yaml.SequenceNode {
+			return fmt.Errorf("allOf must be a sequence")
+		}
+		// Remove allOf from node
+		node.Content = mapRemoveKey(node.Content, "allOf")
+		// Merge each subschema
+		for _, sub := range allOfNode.Content {
+			expanded := cloneNode(sub)
+			if err := expandNode(expanded, defs); err != nil {
+				return err
+			}
+			if expanded.Kind == yaml.MappingNode {
+				mergeMappingNodes(node, expanded)
+			}
+		}
+	}
+	return nil
+}
+
+func mapGet(node *yaml.Node, key string) *yaml.Node {
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if node.Content[i].Value == key {
+			return node.Content[i+1]
+		}
+	}
+	return nil
+}
+
+func mapRemoveKey(content []*yaml.Node, key string) []*yaml.Node {
+	result := make([]*yaml.Node, 0, len(content))
+	for i := 0; i+1 < len(content); i += 2 {
+		if content[i].Value != key {
+			result = append(result, content[i], content[i+1])
+		}
+	}
+	return result
+}
+
+func cloneNode(node *yaml.Node) *yaml.Node {
+	if node == nil {
+		return nil
+	}
+	clone := &yaml.Node{Kind: node.Kind, Tag: node.Tag, Value: node.Value, Style: node.Style}
+	clone.Content = make([]*yaml.Node, len(node.Content))
+	for i, child := range node.Content {
+		clone.Content[i] = cloneNode(child)
+	}
+	return clone
+}
+
+func mapSet(node *yaml.Node, key string, value *yaml.Node) {
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if node.Content[i].Value == key {
+			node.Content[i+1] = value
+			return
+		}
+	}
+	node.Content = append(node.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}, value)
+}
+
+// mergeMappingNodes merges source into target. For "properties" and "required"
+// it performs deep merge; for all other keys, source overwrites target.
+func mergeMappingNodes(target, source *yaml.Node) {
+	for i := 0; i+1 < len(source.Content); i += 2 {
+		key := source.Content[i].Value
+		srcVal := source.Content[i+1]
+		tgtVal := mapGet(target, key)
+		if tgtVal == nil {
+			target.Content = append(target.Content, source.Content[i], srcVal)
+			continue
+		}
+		switch key {
+		case "properties":
+			merged := cloneNode(tgtVal)
+			for j := 0; j+1 < len(srcVal.Content); j += 2 {
+				if mapGet(merged, srcVal.Content[j].Value) == nil {
+					merged.Content = append(merged.Content, srcVal.Content[j], srcVal.Content[j+1])
+				}
+			}
+			mapSet(target, key, merged)
+		case "required":
+			merged := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
+			seen := map[string]bool{}
+			for _, item := range append(tgtVal.Content, srcVal.Content...) {
+				if !seen[item.Value] {
+					merged.Content = append(merged.Content, item)
+					seen[item.Value] = true
+				}
+			}
+			mapSet(target, key, merged)
+		default:
+			mapSet(target, key, srcVal)
+		}
+	}
 }
 
 type generatedOutput struct {
@@ -497,16 +789,16 @@ func validate(document catalogDocument) error {
 		if tool.ViewHint != "object" && tool.ViewHint != "table" {
 			return fmt.Errorf("tool %q has unsupported view hint %q", tool.Name, tool.ViewHint)
 		}
-		if tool.OutputSchema["type"] != "object" {
+		if outputTypeString(tool.OutputSchema.Type) != "object" {
 			return fmt.Errorf("tool %q output schema must be an object", tool.Name)
 		}
 		if tool.InputSchema.Type != "object" {
 			return fmt.Errorf("tool %q input schema must be an object", tool.Name)
 		}
-		if !slices.Contains(tool.InputSchema.Required, "cluster") {
+		if tool.Name != "rmq.cluster.list" && !slices.Contains(tool.InputSchema.Required, "cluster") {
 			return fmt.Errorf("tool %q must require cluster", tool.Name)
 		}
-		if err := validateSchema(tool.InputSchema, make(map[string]struct{})); err != nil {
+		if err := validateSchema(tool.Name, tool.InputSchema, make(map[string]struct{})); err != nil {
 			return fmt.Errorf("tool %q: %w", tool.Name, err)
 		}
 		if err := validateRisk(tool); err != nil {
@@ -518,11 +810,11 @@ func validate(document catalogDocument) error {
 
 // Flags retain their leaf names at every depth for CLI compatibility. Reject
 // collisions across the entire command before Cobra can register them.
-func validateSchema(schema inputSchema, flags map[string]struct{}) error {
+func validateSchema(toolName string, schema inputSchema, flags map[string]struct{}) error {
 	if len(schema.PropertyOrder) != len(schema.Properties) {
 		return fmt.Errorf("invalid input property ordering")
 	}
-	if len(schema.Properties) == 0 {
+	if len(schema.Properties) == 0 && toolName != "rmq.cluster.list" {
 		return fmt.Errorf("object must define properties for CLI flags")
 	}
 	for _, name := range schema.PropertyOrder {
@@ -535,7 +827,7 @@ func validateSchema(schema inputSchema, flags map[string]struct{}) error {
 			return fmt.Errorf("property %q: %w", name, err)
 		}
 		if kind == "ObjectField" {
-			if err := validateSchema(field, flags); err != nil {
+			if err := validateSchema(toolName, field, flags); err != nil {
 				return fmt.Errorf("property %q: %w", name, err)
 			}
 			continue
@@ -652,6 +944,8 @@ func compileDocument(document catalogDocument, digest string) (goDocument, error
 		if err != nil {
 			return goDocument{}, fmt.Errorf("compile tool %q: %w", tool.Name, err)
 		}
+		compiledTool.OutputSchema = compileOutputSchema(tool.OutputSchema)
+		compiledTool.TableColumns = tableColumnNames(tool)
 		compiled.Tools = append(compiled.Tools, compiledTool)
 	}
 
@@ -692,6 +986,68 @@ func compileSchema(schema inputSchema) (goInputSchema, error) {
 		compiled.AnyOf = append(compiled.AnyOf, goRequiredGroup{Required: slices.Clone(group.Required)})
 	}
 	return compiled, nil
+}
+
+func compileOutputSchema(schema outputSchema) goOutputSchema {
+	compiled := goOutputSchema{Fields: make([]goOutputField, 0, len(schema.PropertyOrder))}
+	for _, name := range schema.PropertyOrder {
+		prop, exists := schema.Properties[name]
+		if !exists {
+			continue
+		}
+		compiled.Fields = append(compiled.Fields, compileOutputField(name, prop))
+	}
+	return compiled
+}
+
+func compileOutputField(name string, prop outputProp) goOutputField {
+	field := goOutputField{
+		Name:        name,
+		Kind:        outputTypeString(prop.Type),
+		Description: prop.Description,
+		Enum:        slices.Clone(prop.Enum),
+	}
+	if len(prop.PropertyOrder) > 0 {
+		field.Object = &goOutputSchema{}
+		for _, childName := range prop.PropertyOrder {
+			child, exists := prop.Properties[childName]
+			if !exists {
+				continue
+			}
+			field.Object.Fields = append(field.Object.Fields, compileOutputField(childName, child))
+		}
+	}
+	if prop.Items != nil && len(prop.Items.PropertyOrder) > 0 {
+		field.ArrayItem = &goOutputSchema{}
+		for _, childName := range prop.Items.PropertyOrder {
+			child, exists := prop.Items.Properties[childName]
+			if !exists {
+				continue
+			}
+			field.ArrayItem.Fields = append(field.ArrayItem.Fields, compileOutputField(childName, child))
+		}
+	}
+	return field
+}
+
+// outputTypeString converts the YAML type value (which may be a string or a
+// sequence of strings for union types like [integer, 'null']) into a single
+// display string for the generated Go struct.
+func outputTypeString(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case []any:
+		var parts []string
+		for _, item := range typed {
+			if s, ok := item.(string); ok {
+				parts = append(parts, s)
+			}
+		}
+		return strings.Join(parts, "|")
+	default:
+		return ""
+	}
 }
 
 func renderGo(document goDocument) ([]byte, error) {
@@ -757,14 +1113,13 @@ func tableDataKey(tool toolSpec) string {
 	if tool.ViewHint != "table" {
 		return ""
 	}
-	properties, ok := tool.OutputSchema["properties"].(map[string]any)
-	if !ok {
+	if outputTypeString(tool.OutputSchema.Type) != "object" {
 		return ""
 	}
 	key := ""
-	for name, value := range properties {
-		property, ok := value.(map[string]any)
-		if !ok || property["type"] != "array" {
+	for _, name := range tool.OutputSchema.PropertyOrder {
+		prop, exists := tool.OutputSchema.Properties[name]
+		if !exists || outputTypeString(prop.Type) != "array" {
 			continue
 		}
 		if key != "" {
@@ -773,6 +1128,24 @@ func tableDataKey(tool toolSpec) string {
 		key = name
 	}
 	return key
+}
+
+// tableColumnNames returns the ordered property names of the array item object
+// inside the output schema, so table rendering can honour the schema-declared
+// column order instead of falling back to alphabetical sorting.
+func tableColumnNames(tool toolSpec) []string {
+	if tool.ViewHint != "table" {
+		return nil
+	}
+	dataKey := tableDataKey(tool)
+	if dataKey == "" {
+		return nil
+	}
+	prop, exists := tool.OutputSchema.Properties[dataKey]
+	if !exists || prop.Items == nil {
+		return nil
+	}
+	return slices.Clone(prop.Items.PropertyOrder)
 }
 
 func formatStringSlice(values []string) string {

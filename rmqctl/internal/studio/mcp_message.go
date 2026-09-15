@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/apache/rocketmq-dashboard/rmqctl/internal/catalog"
 	mcptransport "github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -286,6 +287,13 @@ func bindToolInstance(payload json.RawMessage, cluster string) (json.RawMessage,
 	if err := json.Unmarshal(message["params"], &params); err != nil || params == nil {
 		return payload, nil
 	}
+	var toolName string
+	if raw, ok := params["name"]; ok {
+		_ = json.Unmarshal(raw, &toolName)
+	}
+	if !toolRequiresCluster(toolName) {
+		return payload, nil
+	}
 	arguments := map[string]json.RawMessage{}
 	if raw, ok := params["arguments"]; ok {
 		if err := json.Unmarshal(raw, &arguments); err != nil || arguments == nil {
@@ -299,4 +307,17 @@ func bindToolInstance(payload json.RawMessage, cluster string) (json.RawMessage,
 	params["arguments"], _ = json.Marshal(arguments)
 	message["params"], _ = json.Marshal(params)
 	return json.Marshal(message)
+}
+
+// toolRequiresCluster reports whether the named tool declares a "cluster"
+// input field. Unknown tools default to true to preserve backward
+// compatibility.
+func toolRequiresCluster(toolName string) bool {
+	for _, tool := range catalog.Default().Tools {
+		if tool.Name == toolName {
+			_, ok := tool.InputSchema.Field("cluster")
+			return ok
+		}
+	}
+	return true
 }

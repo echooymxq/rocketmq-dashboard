@@ -25,6 +25,7 @@ import (
 
 	toolcatalog "github.com/apache/rocketmq-dashboard/rmqctl/internal/catalog"
 	"github.com/apache/rocketmq-dashboard/rmqctl/internal/output"
+	"github.com/apache/rocketmq-dashboard/rmqctl/internal/studio"
 	"github.com/apache/rocketmq-dashboard/rmqctl/internal/types"
 	"github.com/spf13/cobra"
 )
@@ -168,15 +169,22 @@ func runTool(
 	if err != nil {
 		return err
 	}
-	if suppliedCluster, supplied := arguments["cluster"]; supplied {
-		if err := validateExplicitCluster(suppliedCluster, target.Cluster); err != nil {
-			return err
+	if _, hasClusterField := tool.InputSchema.Field("cluster"); hasClusterField {
+		if suppliedCluster, supplied := arguments["cluster"]; supplied {
+			if err := validateExplicitCluster(suppliedCluster, target.Cluster); err != nil {
+				return err
+			}
+		} else {
+			arguments["cluster"] = target.Cluster
 		}
-	} else {
-		arguments["cluster"] = target.Cluster
 	}
 	if err := validateSchemaArguments(tool, tool.InputSchema, arguments); err != nil {
 		return err
+	}
+
+	dryRun, _ := arguments["dry_run"].(bool)
+	if tool.RiskLevel != "L1" && !dryRun && !hasConfirmToken(arguments) {
+		return runMutationWithAutoPreview(cmd, runtime, tool, arguments, target, format)
 	}
 
 	if err := confirmRisk(cmd, runtime, tool, arguments); err != nil {
@@ -194,7 +202,81 @@ func runTool(
 	if tool.RiskLevel != "L1" {
 		return output.ToolCallSummary(out, result)
 	}
-	return renderTable(out, tool, result)
+	return renderTable(out, tool, result, target.Cluster)
+}
+
+// runMutationWithAutoPreview orchestrates a two-phase mutation for human users
+// who run an L2/L3 tool without --dry-run or --confirm-token. It sends a
+// dry-run request first, displays the plan on stderr, prompts for
+// confirmation, then applies with the returned confirm_token. --yes skips the
+// prompt but still runs the preview so the server token check succeeds. The
+// final EXECUTED result goes to stdout; the preview plan stays on stderr so
+// structured stdout (--output json) remains parseable.
+func runMutationWithAutoPreview(
+	cmd *cobra.Command,
+	runtime commandRuntime,
+	tool toolcatalog.Tool,
+	arguments map[string]any,
+	target studio.Target,
+	format string,
+) error {
+	errOut := cmd.ErrOrStderr()
+	out := cmd.OutOrStdout()
+
+	previewArgs := cloneArguments(arguments)
+	previewArgs["dry_run"] = true
+	previewResult, err := runtime.client.CallTool(cmd.Context(), target, tool.Name, previewArgs)
+	if err != nil {
+		return err
+	}
+	mutation, err := types.DecodeMutationOutput(previewResult)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(errOut, "Preview:")
+	if err := output.ToolCallSummary(errOut, previewResult); err != nil {
+		return err
+	}
+
+	if !runtime.options.yes {
+		confirm := runtime.confirm
+		if confirm == nil {
+			confirm = confirmApply
+		}
+		if err := confirm(cmd.InOrStdin(), errOut, tool.CommandPath(), tool.RiskLevel, runtime.targetServer()); err != nil {
+			return err
+		}
+	}
+
+	applyArgs := cloneArguments(arguments)
+	applyArgs["confirm_token"] = mutation.ConfirmToken
+	delete(applyArgs, "dry_run")
+	result, err := runtime.client.CallTool(cmd.Context(), target, tool.Name, applyArgs)
+	if err != nil {
+		return err
+	}
+
+	if output.IsStructured(format) {
+		return output.Structured(out, format, result)
+	}
+	return output.ToolCallSummary(out, result)
+}
+
+// hasConfirmToken reports whether arguments carry a non-empty confirm_token.
+func hasConfirmToken(arguments map[string]any) bool {
+	token, ok := arguments["confirm_token"].(string)
+	return ok && token != ""
+}
+
+// cloneArguments copies the argument map so callers can add or remove control
+// fields without mutating the original binder output.
+func cloneArguments(arguments map[string]any) map[string]any {
+	cloned := make(map[string]any, len(arguments)+2)
+	for k, v := range arguments {
+		cloned[k] = v
+	}
+	return cloned
 }
 
 // validateExplicitCluster rejects a --cluster value that does not match the
@@ -247,14 +329,16 @@ func deprecatedMessage(tool toolcatalog.Tool) string {
 }
 
 // confirmRisk enforces the client-side confirmation gate for L2/L3 operations.
-// L1 tools, dry-run previews and commands invoked with --yes skip the prompt.
+// L1 tools, dry-run previews, commands invoked with --yes, and commands
+// carrying a --confirm-token skip the prompt. A confirm_token means the user
+// already reviewed a dry-run preview, so the interactive prompt is redundant.
 // Prompts go to stderr to preserve structured stdout. When App.confirm is set
 // (tests) it is used directly; otherwise the default TTY-aware
 // implementation rejects non-interactive stdin to avoid silently executing
 // dangerous actions from scripts or pipes.
 func confirmRisk(cmd *cobra.Command, runtime commandRuntime, tool toolcatalog.Tool, arguments map[string]any) error {
 	dryRun, _ := arguments["dry_run"].(bool)
-	if tool.RiskLevel == "L1" || dryRun || runtime.options.yes {
+	if tool.RiskLevel == "L1" || dryRun || runtime.options.yes || hasConfirmToken(arguments) {
 		return nil
 	}
 	confirm := runtime.confirm
@@ -262,6 +346,41 @@ func confirmRisk(cmd *cobra.Command, runtime commandRuntime, tool toolcatalog.To
 		confirm = defaultConfirm
 	}
 	return confirm(cmd.InOrStdin(), cmd.ErrOrStderr(), tool.CommandPath(), tool.RiskLevel, runtime.targetServer())
+}
+
+// confirmApply is the confirmation prompt used by runMutationWithAutoPreview.
+// It assumes the preview plan has already been displayed, so it only asks for
+// a yes/no without repeating the server URL or risk-level WARNING banner.
+// The server parameter is kept for confirmFunc signature compatibility but
+// is intentionally unused.
+func confirmApply(in io.Reader, out io.Writer, commandPath, riskLevel, server string) error {
+	file, ok := in.(*os.File)
+	if !ok || file == nil {
+		return riskConfirmationRequired(commandPath, riskLevel)
+	}
+	stat, err := file.Stat()
+	if err != nil {
+		return riskConfirmationRequired(commandPath, riskLevel)
+	}
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		return riskConfirmationRequired(commandPath, riskLevel)
+	}
+	fmt.Fprintf(out, "Apply this plan? Type \"yes\" to continue: ")
+	reader := bufio.NewReader(in)
+	answer, err := reader.ReadString('\n')
+	if err != nil {
+		return types.NewCLIError(
+			types.CodeCommandFailed,
+			fmt.Sprintf("confirmation for %q failed: %v", commandPath, err),
+			"Re-run the command and confirm interactively, or pass --yes to skip the prompt.")
+	}
+	if !isAffirmative(strings.TrimSpace(answer)) {
+		return types.NewCLIError(
+			types.CodeCommandFailed,
+			fmt.Sprintf("execution of %q cancelled", commandPath),
+			"Re-run the command and type yes, or pass --yes to skip the prompt.")
+	}
+	return nil
 }
 
 // defaultConfirm is the production confirmation implementation. It only

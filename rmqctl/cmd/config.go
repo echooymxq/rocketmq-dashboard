@@ -53,9 +53,9 @@ func newConfigSetContextCommand(runtime commandRuntime) *cobra.Command {
 			if cmd.Flags().Changed("server") {
 				contextValue.Server = server
 			}
-		if cmd.Flags().Changed("cluster") {
-			contextValue.Cluster = cluster
-		}
+			if cmd.Flags().Changed("cluster") {
+				contextValue.Cluster = cluster
+			}
 			if cmd.Flags().Changed("access-key-env") {
 				contextValue.Credential.AccessKeyRef = "env:" + accessKeyEnv
 			}
